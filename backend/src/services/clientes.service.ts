@@ -1,5 +1,4 @@
 // Lógica de negocio de clientes: consultas, altas, modificaciones (con histórico) y borrado.
-// Los controladores solo traducen HTTP <-> llamadas a estas funciones.
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';

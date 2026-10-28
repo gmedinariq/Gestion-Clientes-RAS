@@ -1,5 +1,4 @@
-// Controladores: leen la petición HTTP, validan la entrada, llaman al servicio y devuelven la respuesta.
-// No contienen lógica de negocio ni consultas a la base de datos.
+// Los controladores solo traducen HTTP: validan la entrada, llaman al servicio y devuelven la respuesta.
 
 import type { Request, Response } from 'express';
 import * as clientesService from '../services/clientes.service';

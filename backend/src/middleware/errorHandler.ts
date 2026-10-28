@@ -3,10 +3,9 @@ import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 import { HttpError } from '../utils/HttpError';
 
-// Gestión centralizada de errores: cualquier error lanzado en una ruta acaba aquí.
-// Express 5 captura también los errores de funciones async, sin necesidad de try/catch.
+// Gestión centralizada de errores. Express 5 también envía aquí los errores de las funciones async,
+// así que los controladores no necesitan try/catch.
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  // Datos de entrada no válidos (validación con Zod)
   if (err instanceof ZodError) {
     res.status(400).json({
       error: 'Datos no válidos',
@@ -15,19 +14,17 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  // Errores controlados lanzados por nuestro código
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.message, detalles: err.detalles });
+    res.status(err.status).json({ error: err.message });
     return;
   }
 
-  // Violación de una restricción UNIQUE en PostgreSQL (p. ej. CIF repetido)
+  // Violación de una restricción UNIQUE (p. ej. CIF repetido en una condición de carrera)
   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
     res.status(409).json({ error: 'Ya existe un registro con esos datos' });
     return;
   }
 
-  // JSON mal formado en el cuerpo de la petición
   if (err?.type === 'entity.parse.failed') {
     res.status(400).json({ error: 'El cuerpo de la petición no es un JSON válido' });
     return;

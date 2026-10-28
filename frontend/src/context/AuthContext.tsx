@@ -1,5 +1,4 @@
-// Estado global de la sesión: qué usuario ha iniciado sesión (o null).
-// Cualquier componente puede leerlo con useAuth().
+// Estado global de la sesión: qué usuario ha iniciado sesión (o null). Se lee con useAuth().
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authApi } from '../api/clientes';

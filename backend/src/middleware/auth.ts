@@ -18,10 +18,7 @@ declare global {
   }
 }
 
-/**
- * Protege las rutas: si la cookie de sesión no es válida responde 401.
- * Equivale al atributo [Authorize] de ASP.NET Core.
- */
+/** Protege las rutas: si la cookie de sesión no es válida responde 401. */
 export const requireAuth: RequestHandler = async (req, _res, next) => {
   const token: string | undefined = req.cookies?.[COOKIE_SESION];
   const usuario = token ? await usuarioDeSesion(token) : null;

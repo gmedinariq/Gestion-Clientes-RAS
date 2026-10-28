@@ -4,10 +4,9 @@ import { requireAuth } from '../middleware/auth';
 
 export const clientesRouter = Router();
 
-// Todas las rutas de clientes exigen sesión iniciada
 clientesRouter.use(requireAuth);
 
-// Rutas auxiliares para la interfaz (van antes de "/:id" para que no se confundan con un id)
+// Rutas auxiliares para la interfaz: van antes de "/:id" para que no se interpreten como un id
 clientesRouter.get('/filtros', clientes.filtros);
 clientesRouter.get('/resumen', clientes.resumen);
 

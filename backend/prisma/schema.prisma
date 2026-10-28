@@ -1,6 +1,3 @@
-// Esquema de la base de datos. Prisma genera a partir de aquí:
-//  - las migraciones SQL (carpeta prisma/migrations)
-//  - el cliente tipado que usamos en el código (import { PrismaClient } from '@prisma/client')
 // Los nombres de tablas y columnas en PostgreSQL van en snake_case (@@map / @map).
 
 generator client {

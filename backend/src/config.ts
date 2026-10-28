@@ -2,7 +2,6 @@
 
 export const config = {
   port: Number(process.env.PORT ?? 3000),
-  // Duración de la sesión en horas
   sessionHours: Number(process.env.SESSION_HOURS ?? 8),
   // true en producción con HTTPS: el navegador solo enviará la cookie por conexiones seguras
   cookieSecure: process.env.COOKIE_SECURE === 'true',

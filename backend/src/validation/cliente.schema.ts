@@ -1,6 +1,5 @@
-// Validación de los datos que llegan a la API, con Zod.
-// Equivale a los DataAnnotations / FluentValidation de ASP.NET: si algo no cumple el esquema,
-// .parse() lanza un ZodError y el errorHandler responde 400 con la lista de campos erróneos.
+// Validación y normalización de los datos que llegan a la API.
+// Si algo no cumple el esquema, .parse() lanza un ZodError y errorHandler responde 400 con los campos erróneos.
 
 import { z } from 'zod';
 import { limpiarTexto, normalizarCif, normalizarFecha, normalizarPais } from '../import/normalizers';
@@ -16,7 +15,7 @@ const textoOpcional = (max: number) =>
     .nullish()
     .transform((v) => limpiarTexto(v));
 
-export const contactoSchema = z.object({
+const contactoSchema = z.object({
   id: z.number().int().positive().max(MAX_ID).optional(), // si viene, es un contacto existente que se actualiza
   nombre: z.string().trim().min(1, 'El nombre del contacto es obligatorio').max(150),
   email: z
@@ -60,7 +59,6 @@ export const clienteSchema = z.object({
 });
 
 export type ClienteInput = z.infer<typeof clienteSchema>;
-export type ContactoInput = z.infer<typeof contactoSchema>;
 
 export const listadoSchema = z.object({
   q: z.string().trim().max(100).optional(),

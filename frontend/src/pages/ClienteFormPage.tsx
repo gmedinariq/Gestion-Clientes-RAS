@@ -12,6 +12,8 @@ import type { ClienteDetalle, ClienteFormData } from '../types';
 
 type Errores = Record<string, string>;
 
+const ETIQUETAS_CONTACTO = { nombre: 'Nombre', email: 'Email', telefono: 'Teléfono' };
+
 const VACIO: ClienteFormData = {
   empresa: '',
   cif: '',
@@ -198,11 +200,10 @@ export function ClienteFormPage() {
             <div className="fila-contacto" key={c.id ?? `nuevo-${i}`}>
               {(['nombre', 'email', 'telefono'] as const).map((campo) => {
                 const clave = `contactos.${i}.${campo}`;
-                const etiquetas = { nombre: 'Nombre', email: 'Email', telefono: 'Teléfono' };
                 return (
                   <label key={campo} className={`campo ${errores[clave] ? 'campo-error' : ''}`}>
                     <span>
-                      {etiquetas[campo]}
+                      {ETIQUETAS_CONTACTO[campo]}
                       {campo === 'nombre' && <span className="obligatorio"> *</span>}
                     </span>
                     <input
