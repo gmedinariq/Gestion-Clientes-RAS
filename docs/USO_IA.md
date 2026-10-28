@@ -22,6 +22,8 @@ Escribí un único prompt inicial largo y estructurado (no una petición genéri
 | # | Prompt (resumen) | Resultado |
 |---|---|---|
 | 1 | "Desarrolla la prueba técnica completa siguiendo el PDF. Lee primero el PDF y el CSV y analiza todos los requisitos. Prioriza sencillez y calidad…" (prompt completo con los 14 apartados descritos arriba) | Todo el proyecto, desarrollado por fases con commits |
+| 2 | "Prepara un ZIP del proyecto para una revisión técnica externa, sin node_modules, .git, .env ni datos sensibles; no modifiques nada" | ZIP generado con `git archive` (no forma parte del repositorio) |
+| 3 | "Auditoría final: valida estrictamente las fechas de la API, revisa seguridad y autenticación, clasifica las vulnerabilidades de dependencias, comprueba requisito a requisito y los casos especiales, sin rehacer la arquitectura ni borrar datos" | Ver la sección [Auditoría final](#auditoría-final) |
 
 La sesión fue autónoma: la IA trabajó por fases sin pedir confirmación en cada paso, tal como le indiqué.
 
@@ -69,7 +71,7 @@ Todas están explicadas en el README (apartado 12).
 
 ### Lo que NO se pudo comprobar en la sesión
 
-- **La interfaz web en un navegador real.** La extensión de navegador de Claude no estaba disponible en la sesión. Se comprobó que el frontend compila sin errores de tipos y que todos los endpoints que usa responden correctamente, pero **los formularios, filtros y navegación deben revisarse manualmente** antes de la entrega. Lista de comprobación recomendada:
+- **La interfaz web en un navegador real.** La IA no tuvo acceso a ningún navegador (ni en el desarrollo ni en la auditoría final). Se comprobó que el frontend compila sin errores de tipos y que todos los endpoints que usa responden correctamente. **Comprobación manual hecha por el candidato** (según indicó al pedir la auditoría): inicio de sesión, listado, ficha de cliente, edición de un cliente y su reflejo en el histórico. Siguen pendientes de revisar a mano los puntos 3, 4, 6 y 7 de esta lista, los filtros y la paginación del punto 2 y la gestión de contactos del punto 5:
   1. Entrar con el usuario demo y con una contraseña incorrecta.
   2. Buscar "ebro", filtrar por país/estado/comercial, cambiar de página.
   3. Crear un cliente con un contacto; intentar crear otro con el mismo CIF (debe mostrar error).
@@ -98,6 +100,40 @@ Todas están explicadas en el README (apartado 12).
 
 <!-- Completa esta sección con tu propia revisión antes de entregar (qué revisaste, qué cambiaste tú). -->
 
+
+## Auditoría final
+
+Antes de la entrega se pidió a la IA una auditoría con una restricción explícita: **corregir solo problemas reales**, sin cambiar la arquitectura, el diseño ni las tecnologías, y sin borrar datos (las pruebas destructivas solo en la base de datos de tests).
+
+**Método:** antes de corregir nada, se escribieron tests que reproducían cada sospecha. Solo se corrigió lo que esos tests demostraron que fallaba.
+
+| Hallazgo | ¿Real? | Corrección |
+|---|---|---|
+| La API validaba `fechaAlta` con `Date.parse()`, que acepta `2026-09-31` y lo convierte en `2026-10-01` | **Sí**: `POST` devolvía 201 y guardaba la fecha equivocada | Se valida con `normalizarFecha()`, la función estricta que ya usaba el importador (que no se ha tocado) |
+| Un id mayor que el máximo de `INTEGER` (`/api/clientes/99999999999`, o un `id` de contacto enorme en el PUT) | **Sí**: error 500 de PostgreSQL | Máximo de 2.147.483.647 en `idSchema` y en el id de contacto → 400 |
+| Acceso sin sesión a PUT, DELETE, filtros y resumen; cookie inventada; cookie reutilizada tras logout; sesión caducada; exposición del hash de la contraseña | No: ya estaban bien protegidos | Solo se añadieron tests que lo demuestran |
+| CSRF / configuración de cookies | No: `HttpOnly`, `SameSite=Strict`, `Secure` configurable, cuerpo JSON obligatorio | — |
+| JSON mal formado o cuerpo que no es JSON | No: ya devolvía 400 | Test añadido |
+| Borrado lógico coherente con facturas e histórico | Sí era coherente | Tests añadidos: borrar un contacto queda en el histórico; un cliente eliminado no se puede modificar y su CIF sigue reservado (409 con mensaje claro) |
+| README no dejaba suficientemente claro que las credenciales demo son solo locales | Documentación | Aviso explícito en el README |
+
+**Dependencias (`npm audit`)**: frontend sin vulnerabilidades. En el backend quedan avisos que solo se corrigen con versiones mayores (Prisma 7, Vitest 5). Están clasificados en el README (§14). Resumen: `deepmerge-ts` llega a la imagen de producción a través del CLI de Prisma, pero solo se usa en `prisma migrate deploy` al arrancar y nunca con datos de usuario. Los avisos críticos (`tinypool`, `@vitest/mocker`) son de herramientas de test que no están en la imagen Docker; se comprobó listando `node_modules` dentro del contenedor.
+
+**Comprobaciones realizadas en la auditoría:**
+
+- `npm test`: **50/50** (antes 40; se añadieron 10).
+- Build de backend y frontend correctos.
+- `docker compose config` válido.
+- Reconstrucción con `docker compose up -d --build` **sin borrar el volumen**. Los conteos de la base de datos (clientes, contactos, facturas, histórico, importaciones y última modificación) eran idénticos antes y después, y la importación se omitió correctamente.
+- Pruebas contra la API en ejecución a través de nginx, solo de lectura o con peticiones que deben rechazarse, para no modificar datos:
+  - 401 sin sesión en GET, PUT, DELETE e histórico;
+  - 400 con fecha inexistente, comprobando además que no se creó nada;
+  - 400 con id enorme o no numérico;
+  - 409 con CIF duplicado;
+  - búsqueda por empresa, CIF, contacto y email;
+  - filtros por estado, país y comercial;
+  - paginación.
+- **No verificado por la IA:** la interfaz en un navegador (no había ninguno disponible).
 
 ## Historial de commits
 

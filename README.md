@@ -6,7 +6,7 @@ Aplicación web interna para gestionar clientes y sus facturas. Sustituye al Exc
 docker compose up
 ```
 
-Abre **http://localhost:8085** y entra con `demo@empresa.local` / `Demo1234!`.
+Abre **http://localhost:8085** y entra con `demo@empresa.local` / `Demo1234!` (credenciales **solo para desarrollo local**, ver [apartado 7](#7-usuario-de-demostración)).
 
 ---
 
@@ -167,6 +167,8 @@ La API recibe además `DATABASE_URL`, que `docker-compose.yml` construye a parti
 - Email: `demo@empresa.local`
 - Contraseña: `Demo1234!`
 
+> ⚠️ **Credenciales solo para desarrollo local.** Son públicas (están en este README y en `docker-compose.yml`) y existen únicamente para que la aplicación se pueda probar tras clonar el repositorio. **No son adecuadas para producción** ni para ningún entorno accesible por otras personas: en ese caso hay que crear un `.env` con `DEMO_USER_PASSWORD` y `POSTGRES_PASSWORD` propios y robustos (o no definir el usuario demo), y activar `COOKIE_SECURE=true` con HTTPS.
+
 Se crea en cada arranque con los valores de `DEMO_USER_EMAIL`, `DEMO_USER_NAME` y `DEMO_USER_PASSWORD` (`backend/src/scripts/seed.ts`). Si cambias la contraseña en `.env` y reinicias (`docker compose up -d`), se actualiza. La contraseña se guarda con **bcrypt** (nunca en claro) y debe tener al menos 8 caracteres. Si no se definen email o contraseña, no se crea ningún usuario.
 
 ## 8. Tests
@@ -180,14 +182,14 @@ npm install                    # solo la primera vez
 npm test
 ```
 
-Resultado actual: **40 tests, 4 ficheros, todos en verde.**
+Resultado actual: **50 tests, 4 ficheros, todos en verde.**
 
 | Fichero | Qué comprueba |
 |---|---|
 | `tests/normalizers.test.ts` | Fechas en todos los formatos del CSV, fechas imposibles (31/09), importes (`1.250`, `1.875,60`, `640.5`, `980,40 €`), IVA, CIF, email, país, comercial, cálculo de IVA y total. |
-| `tests/logica.test.ts` | Detección de cambios para el histórico (sin cambios → nada), suma exacta de la facturación, validaciones de cliente y contactos. |
+| `tests/logica.test.ts` | Detección de cambios para el histórico (sin cambios → nada), suma exacta de la facturación, validaciones de cliente y contactos, fechas de alta inexistentes (`2026-09-31`) e ids fuera de rango. |
 | `tests/importacion.test.ts` | Importa el CSV real: 7 clientes, 8 contactos, 14 facturas, 1 duplicado, 2 rechazadas; fila sin CIF; repetir la importación no duplica; una fila mala no detiene el resto. |
-| `tests/api.test.ts` | 401 sin sesión, login/logout y cookie HttpOnly, paginación, búsqueda (empresa, contacto, CIF, email), filtros, ficha, alta, CIF duplicado (409), validación (400), histórico con usuario y valores, no registrar si no cambia nada, transacción (si falla no se guarda nada), borrado lógico. |
+| `tests/api.test.ts` | 401 sin sesión en todos los endpoints de clientes (lectura y escritura), cookie inventada, cookie reutilizada tras el logout, sesión caducada, sin exposición del hash de la contraseña, login/logout y cookie HttpOnly, paginación, búsqueda (empresa, contacto, CIF, email), filtros, ficha, alta, CIF duplicado (409), validación (400), fecha de alta inexistente, JSON mal formado, histórico con usuario y valores (incluido borrar un contacto), no registrar si no cambia nada, transacción (si falla no se guarda nada), borrado lógico, cliente eliminado no modificable y su CIF reservado. |
 
 Para usar otra base de datos de tests: variable `TEST_DATABASE_URL`. Por seguridad, los tests se niegan a vaciar una base de datos cuyo nombre no contenga `test`.
 
@@ -317,24 +319,31 @@ Decisiones tomadas porque el enunciado no las especificaba:
 | `prisma migrate reset` (usado inicialmente para preparar la BD de tests) está bloqueado por Prisma cuando lo ejecuta un agente de IA, porque borra datos | Se sustituyó por `prisma migrate deploy` (no destructivo) + `TRUNCATE` protegido para que solo actúe sobre una BD cuyo nombre contenga `test` |
 | `csv-parse` 7 solo publica `csv-parse/sync` mediante `exports` | `moduleResolution: node16` en el `tsconfig` del backend |
 | Puertos 5433 y 8080 ocupados en el equipo de desarrollo | Puertos por defecto 55432 y 8085, configurables |
+| La API aceptaba fechas de alta inexistentes: `Date.parse('2026-09-31')` no falla, devuelve el 1 de octubre, y se guardaba esa fecha | La validación usa `normalizarFecha()`, la misma comprobación estricta del importador. Test con 7 fechas inválidas y el 29/02 de un año bisiesto |
+| Un id mayor que el máximo de `INTEGER` (`/api/clientes/99999999999`) provocaba un error 500 en PostgreSQL | Los ids se validan con un máximo de 2.147.483.647 → 400 |
 | Al probar desde un clon limpio, los tests fallaban: tras `npm ci` no existía el cliente generado de Prisma | `"postinstall": "prisma generate"` en `backend/package.json` |
 | Ficheros con finales de línea CRLF en Windows | `.gitattributes` fuerza LF (los contenedores son Linux) |
 | Vulnerabilidades de `npm audit` en versiones iniciales de zod, csv-parse y express-rate-limit | Actualizadas a versiones corregidas |
 
 ## 14. Limitaciones conocidas
 
-- **`npm audit` en el backend** avisa de una vulnerabilidad *high* en `deepmerge-ts`, dependencia del **CLI** de Prisma 6 (`@prisma/config`). Afecta a la lectura de ficheros de configuración del propio CLI, no a la API en ejecución. La única corrección es pasar a Prisma 7 (cambio mayor); se dejó para más adelante.
+- **Dependencias con avisos de `npm audit`** (revisado el 28/10/2026; frontend: 0 vulnerabilidades). Ninguna se corrige sin un cambio de versión mayor, por lo que se han dejado documentadas:
+
+  | Paquete | Gravedad | Dónde se usa | Riesgo real para esta aplicación |
+  |---|---|---|---|
+  | `deepmerge-ts` (vía `prisma` → `@prisma/config`) | Alta | **CLI** de Prisma 6. Está en la imagen de la API porque `prisma migrate deploy` se ejecuta al arrancar | Bajo. Es un agotamiento de pila al combinar objetos recursivos. El CLI solo combina su configuración por defecto (el proyecto no tiene `prisma.config.ts`), nunca datos de una petición HTTP. El cliente que usa la API en ejecución (`@prisma/client`) no lo utiliza. Solución: migrar a Prisma 7 (cambio mayor). |
+  | `vitest`, `tinypool`, `@vitest/mocker` | Crítica / moderada | Solo para ejecutar los tests en local (`devDependencies`) | Ninguno en ejecución: **no están en la imagen Docker** (comprobado dentro del contenedor). Requieren que un atacante controle las opciones del ejecutor de tests. Solución: Vitest 4.1.11+ o 5 (cambio mayor). |
 - La búsqueda no ignora tildes: `Lucia` encuentra el email `lucia@…`, pero no el nombre `Lucía`. (Se resolvería con la extensión `unaccent` de PostgreSQL.)
 - No hay gestión de usuarios desde la web: solo el usuario de demostración, configurado por variables de entorno.
 - Las facturas no se pueden crear ni editar desde la aplicación (no se pedía).
 - No se puede reactivar un cliente eliminado desde la web (solo en la BD poniendo `eliminado_en = NULL`).
 - Si dos usuarios editan el mismo cliente a la vez, gana el último en guardar (no hay control de concurrencia optimista).
-- La interfaz no tiene tests automáticos; se ha comprobado que compila y que todas las llamadas que hace a la API funcionan, pero **la navegación y los formularios no se han probado de forma automatizada en un navegador** (ver `docs/USO_IA.md`).
+- La interfaz no tiene tests automáticos. Se ha comprobado que compila, que todas las llamadas que hace a la API funcionan y, **manualmente en el navegador**, el inicio de sesión, el listado, la ficha, la edición de un cliente y su reflejo en el histórico. No se han probado en navegador (ni de forma automatizada) el resto de flujos: alta, errores del formulario, eliminación, filtros, paginación y vista móvil (ver `docs/USO_IA.md`).
 - Los tests necesitan el PostgreSQL de Docker arrancado.
 
 ## 15. Mejoras futuras
 
-1. Pasar a Prisma 7 para eliminar el aviso de `npm audit`.
+1. Pasar a Prisma 7 y Vitest 5 para eliminar los avisos de `npm audit`.
 2. Tests end-to-end de la interfaz (Playwright) y tests de componentes (React Testing Library).
 3. Búsqueda sin tildes (`unaccent`) y ordenación por columnas en la tabla.
 4. Gestión de usuarios y roles (p. ej. solo administración puede eliminar).

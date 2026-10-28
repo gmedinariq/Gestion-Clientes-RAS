@@ -625,8 +625,13 @@ En la base de datos queda:
 
 ### 7. ¿Cómo validas los datos?
 - **Sencilla:** con Zod, en el servidor; el navegador también valida para avisar antes.
-- **Técnica:** `clienteSchema.parse(req.body)` valida tipos, obligatorios, longitudes, formato de email/teléfono/CIF y además normaliza. Si falla lanza `ZodError` → 400 con `detalles` por campo, que el formulario pinta debajo de cada input.
+- **Técnica:** `clienteSchema.parse(req.body)` valida tipos, obligatorios, longitudes, formato de email/teléfono/CIF, que la fecha de alta exista y que los ids quepan en un `INTEGER`, y además normaliza. Si falla lanza `ZodError` → 400 con `detalles` por campo, que el formulario pinta debajo de cada input.
 - **Archivos:** `src/validation/cliente.schema.ts`, `frontend/src/pages/ClienteFormPage.tsx` (`validar`).
+
+### 7b. ¿Cómo validas que una fecha existe? ¿Por qué no `Date.parse`?
+- **Sencilla:** porque `Date.parse('2026-09-31')` no da error: devuelve el 1 de octubre. Por eso la API usa la misma función estricta que el importador, que comprueba que el día, el mes y el año no hayan cambiado.
+- **Técnica:** `fechaAlta` debe cumplir `AAAA-MM-DD` (regex) y además `normalizarFecha(v) !== null`. `normalizarFecha` crea la fecha con `Date.UTC` y la compara con los números originales: si JavaScript la ha "desbordado" al mes siguiente, la rechaza. Se detectó en una auditoría final: antes la API aceptaba `2026-09-31` y guardaba `2026-10-01`. También se añadió un máximo a los ids (2.147.483.647) porque un id mayor provocaba un 500 en PostgreSQL.
+- **Archivos:** `src/validation/cliente.schema.ts`, `src/import/normalizers.ts` (`normalizarFecha`), tests en `tests/logica.test.ts` y `tests/api.test.ts`.
 
 ### 8. ¿Cómo gestionas los errores?
 - **Sencilla:** en un único middleware que convierte cualquier error en una respuesta JSON con el código correcto.
@@ -740,7 +745,7 @@ En la base de datos queda:
 
 ### 30. ¿Cómo están hechos los tests?
 - **Sencilla:** con Vitest; hay tests unitarios de funciones puras y tests de integración que llaman a la API con Supertest contra una base de datos de test.
-- **Técnica:** `globalSetup` aplica migraciones a `clientes_test`; `beforeEach` vacía tablas (`TRUNCATE`, solo si la BD se llama `*test*`), crea un usuario e importa el CSV real. `request.agent(app)` conserva la cookie entre peticiones. 40 tests.
+- **Técnica:** `globalSetup` aplica migraciones a `clientes_test`; `beforeEach` vacía tablas (`TRUNCATE`, solo si la BD se llama `*test*`), crea un usuario e importa el CSV real. `request.agent(app)` conserva la cookie entre peticiones. 50 tests.
 - **Archivos:** `backend/tests/`, `backend/vitest.config.mts`.
 
 ### 31. ¿Qué mejorarías con más tiempo?
@@ -884,7 +889,7 @@ Más delicado, porque es un ENUM de PostgreSQL:
 
 ## Parte 10. Chuleta de una página
 
-**Arranque:** `docker compose up` → http://localhost:8085 → `demo@empresa.local` / `Demo1234!` · Tests: `docker compose up -d db && cd backend && npm test` (40 ✓)
+**Arranque:** `docker compose up` → http://localhost:8085 → `demo@empresa.local` / `Demo1234!` · Tests: `docker compose up -d db && cd backend && npm test` (50 ✓)
 
 **Arquitectura:** Navegador → **nginx** (web + proxy `/api`) → **Express** (`routes → controllers → services`) → **Prisma** → **PostgreSQL**. Mismo origen → cookie sin CORS.
 
@@ -925,4 +930,4 @@ Más delicado, porque es un ENUM de PostgreSQL:
 
 **Decisiones que defender:** Express (sencillez) · Prisma 6 (no 7: menos configuración) · sesiones vs JWT · borrado lógico · facturas solo lectura · importación sin histórico (no hay usuario) · CIF con validación genérica (clientes extranjeros) · puertos 8085/55432.
 
-**Limitaciones honestas:** búsqueda sensible a tildes · sin roles · sin tests de UI · aviso de `npm audit` en el CLI de Prisma 6 · sin control de concurrencia.
+**Limitaciones honestas:** búsqueda sensible a tildes · sin roles · sin tests de UI · avisos de `npm audit`: `deepmerge-ts` en el CLI de Prisma 6 (solo en migraciones al arrancar, sin datos de usuario) y Vitest 3 (solo desarrollo, no está en la imagen Docker) · sin control de concurrencia · credenciales demo solo para local.
