@@ -5,6 +5,7 @@
   "description": "API REST de gestión de clientes (Express + Prisma + PostgreSQL)",
   "type": "commonjs",
   "scripts": {
+    "postinstall": "prisma generate",
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "start": "node dist/src/server.js",
