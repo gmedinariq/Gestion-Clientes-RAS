@@ -209,6 +209,23 @@ describe('PUT /api/clientes/:id e histórico', () => {
     expect(historial[0].usuario.email).toBe(USUARIO_TEST.email);
   });
 
+  it('al quitar un contacto lo borra y lo registra en el histórico', async () => {
+    const agente = await agenteAutenticado();
+    const creado = (await agente.post('/api/clientes').send(nuevoCliente)).body;
+    const contacto = creado.contactos[0];
+
+    const res = await agente.put(`/api/clientes/${creado.id}`).send({ ...nuevoCliente, contactos: [] }).expect(200);
+    expect(res.body.contactos).toHaveLength(0);
+
+    const historial = (await agente.get(`/api/clientes/${creado.id}/historico`)).body;
+    expect(historial[0]).toMatchObject({
+      entidad: 'contacto',
+      registroId: contacto.id,
+      accion: 'ELIMINAR',
+      valorAnterior: 'Pedro Pérez <pedro@talleresperez.es>',
+    });
+  });
+
   it('no registra nada si no cambia ningún valor', async () => {
     const agente = await agenteAutenticado();
     const creado = (await agente.post('/api/clientes').send(nuevoCliente)).body;
@@ -250,5 +267,15 @@ describe('DELETE /api/clientes/:id', () => {
     expect(historial[0]).toMatchObject({ accion: 'ELIMINAR' });
 
     await agente.delete(`/api/clientes/${id}`).expect(404);
+  });
+
+  it('un cliente eliminado no se puede modificar ni se puede reutilizar su CIF', async () => {
+    const agente = await agenteAutenticado();
+    const creado = (await agente.post('/api/clientes').send(nuevoCliente)).body;
+    await agente.delete(`/api/clientes/${creado.id}`).expect(204);
+
+    await agente.put(`/api/clientes/${creado.id}`).send({ ...nuevoCliente, ciudad: 'Teruel' }).expect(404);
+    const res = await agente.post('/api/clientes').send(nuevoCliente).expect(409);
+    expect(res.body.error).toMatch(/cliente eliminado/);
   });
 });
