@@ -1,0 +1,38 @@
+{
+  "name": "gestion-clientes-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de gestión de clientes (Express + Prisma + PostgreSQL)",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "start": "node dist/src/server.js",
+    "start:docker": "prisma migrate deploy && node dist/src/scripts/seed.js && node dist/src/server.js",
+    "seed": "tsx src/scripts/seed.ts",
+    "importar": "tsx src/scripts/importar.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "3.0.3",
+    "cookie-parser": "1.4.7",
+    "csv-parse": "7.0.3",
+    "express": "5.3.0",
+    "express-rate-limit": "8.7.1",
+    "helmet": "8.3.0",
+    "prisma": "6.19.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "1.4.9",
+    "@types/express": "5.0.3",
+    "@types/node": "22.18.12",
+    "@types/supertest": "6.0.3",
+    "supertest": "7.3.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

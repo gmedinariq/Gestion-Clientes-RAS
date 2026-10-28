@@ -1,0 +1,53 @@
+# Arranque completo: docker compose up
+# Las variables se leen del fichero .env (opcional). Si no existe, se usan los valores por defecto
+# que aparecen tras ":-", pensados SOLO para desarrollo local. Ver .env.example.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clientes}
+      POSTGRES_USER: ${POSTGRES_USER:-clientes}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clientes_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data # los datos sobreviven a reinicios y a "docker compose down"
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-55432}:5432" # solo accesible desde este equipo (útil para tests y clientes SQL)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clientes}:${POSTGRES_PASSWORD:-clientes_dev}@db:5432/${POSTGRES_DB:-clientes}
+      PORT: 3000
+      SESSION_HOURS: ${SESSION_HOURS:-8}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo@empresa.local}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-Usuario Demo}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-Demo1234!}
+    depends_on:
+      db:
+        condition: service_healthy # espera a que PostgreSQL acepte conexiones
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

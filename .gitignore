@@ -1,0 +1,20 @@
+# Dependencias y compilados
+node_modules/
+dist/
+coverage/
+
+# Variables de entorno (nunca se suben; usar .env.example como plantilla)
+.env
+.env.*
+!.env.example
+
+# Ficheros originales entregados por la empresa (el CSV de trabajo está en backend/data)
+/Prueba_Tecnica_Gestion_Clientes*.pdf
+/clientes_antiguos.csv
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
