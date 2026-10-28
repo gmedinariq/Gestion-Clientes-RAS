@@ -3,7 +3,7 @@
 ## Herramienta
 
 - **Claude Code** (CLI de Anthropic), modelo **Claude Opus 5.5**, ejecutado en local sobre la carpeta del proyecto en Windows 11.
-- Claude Code puede leer ficheros, escribir código y ejecutar comandos (npm, docker, git) con mi autorización. Todo el desarrollo de esta prueba se hizo en una única sesión.
+- Claude Code puede leer ficheros, escribir código y ejecutar comandos (npm, docker, git) con mi autorización. El desarrollo, la auditoría final y la preparación de la entrega se hicieron en una única sesión.
 
 ## Cómo dirigí a la IA
 
@@ -15,7 +15,7 @@ Escribí un único prompt inicial largo y estructurado (no una petición genéri
 4. **Requisitos detallados** de base de datos, importación (detectar duplicados, formatos de fecha y número, no inventar datos, idempotencia), API, interfaz, histórico (transacciones, no registrar si no hay cambios), Docker y tests.
 5. **Reglas de trabajo**: commits pequeños, no subir secretos, no publicar en GitHub sin mi permiso, no modificar nada fuera de la carpeta, **no afirmar que algo funciona sin comprobarlo**.
 6. **Fases**: análisis → arquitectura → BD e importador → API → autenticación e histórico → web → Docker → pruebas → documentación → guía de defensa.
-7. **Entregables de documentación**: README, este documento y una guía de estudio para la defensa técnica.
+7. **Entregables de documentación**: README, este documento y una guía de estudio para la defensa técnica (de uso personal; ver [Cómo se ha comprobado el código generado](#cómo-se-ha-comprobado-el-código-generado)).
 
 ### Resumen de los prompts principales
 
@@ -24,6 +24,7 @@ Escribí un único prompt inicial largo y estructurado (no una petición genéri
 | 1 | "Desarrolla la prueba técnica completa siguiendo el PDF. Lee primero el PDF y el CSV y analiza todos los requisitos. Prioriza sencillez y calidad…" (prompt completo con los 14 apartados descritos arriba) | Todo el proyecto, desarrollado por fases con commits |
 | 2 | "Prepara un ZIP del proyecto para una revisión técnica externa, sin node_modules, .git, .env ni datos sensibles; no modifiques nada" | ZIP generado con `git archive` (no forma parte del repositorio) |
 | 3 | "Auditoría final: valida estrictamente las fechas de la API, revisa seguridad y autenticación, clasifica las vulnerabilidades de dependencias, comprueba requisito a requisito y los casos especiales, sin rehacer la arquitectura ni borrar datos" | Ver la sección [Auditoría final](#auditoría-final) |
+| 4 | "Preparación final: limpia el código como lo haría un sénior (sin cambiar funcionalidad), prepara un usuario privado local fuera del repositorio, separa la documentación pública de la de estudio y deja el repositorio listo para GitHub sin publicarlo" | Ver la sección [Preparación de la entrega](#preparación-de-la-entrega) |
 
 La sesión fue autónoma: la IA trabajó por fases sin pedir confirmación en cada paso, tal como le indiqué.
 
@@ -51,7 +52,7 @@ La sesión fue autónoma: la IA trabajó por fases sin pedir confirmación en ca
 - **Importación al arrancar solo si el fichero es nuevo** (hash SHA-256), para que reiniciar no recree clientes borrados.
 - **Puertos 8085 y 55432** porque 8080 y 5433 estaban ocupados por otros proyectos en mi equipo.
 
-Todas están explicadas en el README (apartado 12).
+Todas están explicadas en el README (apartado "Decisiones técnicas").
 
 ## Validaciones realizadas (comprobadas de verdad durante la sesión)
 
@@ -69,16 +70,19 @@ Todas están explicadas en el README (apartado 12).
 | Repositorio recién clonado | `git clone` en una carpeta temporal, sin `.env`: `docker compose up --build`, `npm ci`, `npm test`, `npm run build` (backend y frontend) | Todo correcto (tras corregir el `postinstall`, ver abajo) |
 | Importación manual en el contenedor | `docker compose exec api node dist/src/scripts/importar.js` | Funciona; avisa de que el comercial de un cliente difiere y no lo sobrescribe |
 
-### Lo que NO se pudo comprobar en la sesión
+### La interfaz: comprobación manual
 
-- **La interfaz web en un navegador real.** La IA no tuvo acceso a ningún navegador (ni en el desarrollo ni en la auditoría final). Se comprobó que el frontend compila sin errores de tipos y que todos los endpoints que usa responden correctamente. **Comprobación manual hecha por el candidato** (según indicó al pedir la auditoría): inicio de sesión, listado, ficha de cliente, edición de un cliente y su reflejo en el histórico. Siguen pendientes de revisar a mano los puntos 3, 4, 6 y 7 de esta lista, los filtros y la paginación del punto 2 y la gestión de contactos del punto 5:
-  1. Entrar con el usuario demo y con una contraseña incorrecta.
-  2. Buscar "ebro", filtrar por país/estado/comercial, cambiar de página.
-  3. Crear un cliente con un contacto; intentar crear otro con el mismo CIF (debe mostrar error).
-  4. Dejar la empresa vacía o poner un email mal escrito (deben aparecer errores en rojo).
-  5. Editar un cliente, cambiar un teléfono, añadir y quitar contactos; ver el histórico en la ficha.
-  6. Eliminar un cliente (debe pedir confirmación) y comprobar que desaparece del listado.
-  7. Ver la web con el ancho de un móvil (herramientas de desarrollador del navegador).
+La IA no tuvo acceso a ningún navegador en ninguna fase. Por su parte, verificó que el frontend compila sin errores de tipos y que todos los endpoints que usa responden correctamente.
+
+**La interfaz la he probado yo manualmente en el navegador**:
+- inicio de sesión y listado de clientes;
+- creación, consulta, edición y eliminación de clientes;
+- gestión completa de contactos e histórico de modificaciones;
+- mensajes de validación y detección de CIF duplicado;
+- búsquedas y filtros;
+- vista móvil.
+
+No consta una prueba manual específica de la **paginación** en el navegador; está cubierta por los tests de la API y por las comprobaciones con curl.
 
 ## Correcciones importantes durante el desarrollo
 
@@ -96,9 +100,7 @@ Todas están explicadas en el README (apartado 12).
 - Cada fase se verificó **ejecutando** el código (importador contra PostgreSQL, tests, builds, Docker, curl), no solo leyéndolo.
 - Los resultados de la importación se contrastaron con un **análisis manual del CSV** hecho antes de programar.
 - Los tests cubren los casos concretos del CSV real (no datos inventados), y comprueban tanto lo que debe funcionar como los errores (401, 400, 404, 409, transacción revertida).
-- Para entender y poder modificar todo el código, la IA generó la guía [`GUIA_DEFENSA_TECNICA.md`](GUIA_DEFENSA_TECNICA.md), que explica cada parte con referencias a los ficheros reales.
-
-<!-- Completa esta sección con tu propia revisión antes de entregar (qué revisaste, qué cambiaste tú). -->
+- Para entender y poder modificar el código, la IA generó además una **guía de estudio personal** (`GUIA_DEFENSA_TECNICA.md`). Explica cada parte con referencias a los ficheros reales e incluye preguntas de entrevista y ejercicios. Estuvo en `docs/` durante el desarrollo; al preparar la entrega la saqué del repositorio por ser material de estudio personal, no documentación del proyecto. Sigue visible en el historial de commits.
 
 
 ## Auditoría final
@@ -117,7 +119,7 @@ Antes de la entrega se pidió a la IA una auditoría con una restricción explí
 | Borrado lógico coherente con facturas e histórico | Sí era coherente | Tests añadidos: borrar un contacto queda en el histórico; un cliente eliminado no se puede modificar y su CIF sigue reservado (409 con mensaje claro) |
 | README no dejaba suficientemente claro que las credenciales demo son solo locales | Documentación | Aviso explícito en el README |
 
-**Dependencias (`npm audit`)**: frontend sin vulnerabilidades. En el backend quedan avisos que solo se corrigen con versiones mayores (Prisma 7, Vitest 5). Están clasificados en el README (§14). Resumen: `deepmerge-ts` llega a la imagen de producción a través del CLI de Prisma, pero solo se usa en `prisma migrate deploy` al arrancar y nunca con datos de usuario. Los avisos críticos (`tinypool`, `@vitest/mocker`) son de herramientas de test que no están en la imagen Docker; se comprobó listando `node_modules` dentro del contenedor.
+**Dependencias (`npm audit`)**: frontend sin vulnerabilidades. En el backend quedan avisos que solo se corrigen con versiones mayores (Prisma 7, Vitest 5). Están clasificados en el README (apartado "Limitaciones conocidas"). Resumen: `deepmerge-ts` llega a la imagen de producción a través del CLI de Prisma, pero solo se usa en `prisma migrate deploy` al arrancar y nunca con datos de usuario. Los avisos críticos (`tinypool`, `@vitest/mocker`) son de herramientas de test que no están en la imagen Docker; se comprobó listando `node_modules` dentro del contenedor.
 
 **Comprobaciones realizadas en la auditoría:**
 
@@ -134,6 +136,25 @@ Antes de la entrega se pidió a la IA una auditoría con una restricción explí
   - filtros por estado, país y comercial;
   - paginación.
 - **No verificado por la IA:** la interfaz en un navegador (no había ninguno disponible).
+
+## Preparación de la entrega
+
+Petición: revisar el código como lo haría un desarrollador sénior, **sin cambiar funcionalidad, diseño, tecnologías ni la API**, y dejar el repositorio listo para publicar (sin publicarlo).
+
+**Limpieza del código.** Los cambios son pequeños, porque el código ya era consistente:
+- Eliminado un tipo exportado sin uso (`ContactoInput`).
+- Eliminado un parámetro que nunca se rellenaba (`detalles` en `HttpError`). Las respuestas de error no cambian.
+- Retirados los comentarios que repetían el código o comparaban con ASP.NET; ese material de estudio está en la guía personal.
+- Corregida una referencia a un fichero renombrado (`vitest.config.mts`).
+- Una constante del formulario sale fuera del bucle de renderizado.
+- Comprobado con `tsc --noUnusedLocals --noUnusedParameters`: no queda código sin usar.
+- Los `console.log` restantes son logs operativos (arranque de la API y resumen de importación), no de depuración.
+
+**Error encontrado en la configuración de credenciales.** `docker-compose.yml` usaba `${DEMO_USER_PASSWORD:-Demo1234!}`. En Compose, `:-` aplica el valor por defecto también cuando la variable existe pero está **vacía**. Por tanto, un `.env` con un correo privado y la contraseña todavía sin rellenar habría creado ese usuario con la contraseña pública. Se cambió a `-`, que solo aplica el valor por defecto si la variable no existe. Comprobado con `docker compose config` en los dos casos. Un clon sin `.env` sigue usando las credenciales demo.
+
+**Credenciales privadas.** Mi usuario local se configura en un `.env` que git ignora, y yo introduzco la contraseña a mano: la IA no la conoce. Se comprobó que ningún fichero versionado ni ningún commit del historial contiene el correo privado.
+
+**Documentación.** El README se reescribió más conciso, conservando lo que pide el enunciado. La guía de estudio se movió fuera del repositorio tras comprobar que la copia era idéntica (hash SHA-256).
 
 ## Historial de commits
 

@@ -13,6 +13,10 @@ coverage/
 /Prueba_Tecnica_Gestion_Clientes*.pdf
 /clientes_antiguos.csv
 
+# Paquetes de revisión y documentación privada de estudio
+*.zip
+GUIA_DEFENSA_TECNICA.md
+
 # Sistema / editores
 .DS_Store
 Thumbs.db

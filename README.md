@@ -1,106 +1,36 @@
 # Gestión de Clientes
 
-Aplicación web interna para gestionar clientes y sus facturas. Sustituye al Excel compartido que se rellenaba a mano: importa los datos antiguos (`clientes_antiguos.csv`) a PostgreSQL, los expone en una **API REST protegida** y los gestiona desde una **web en español**, guardando un **histórico de todas las modificaciones**.
+Aplicación web interna para gestionar clientes y sus facturas, que sustituye a un Excel compartido. Importa los datos antiguos (`clientes_antiguos.csv`) a PostgreSQL limpiando duplicados y formatos, los expone en una **API REST protegida** y permite gestionarlos desde una **web en español** con **histórico de modificaciones**.
 
 ```bash
 docker compose up
 ```
 
-Abre **http://localhost:8085** y entra con `demo@empresa.local` / `Demo1234!` (credenciales **solo para desarrollo local**, ver [apartado 7](#7-usuario-de-demostración)).
+Web: **http://localhost:8085** · Usuario: `demo@empresa.local` · Contraseña: `Demo1234!` (solo desarrollo local, ver [Credenciales](#credenciales-de-demostración)).
 
----
+## Funcionalidades
 
-## Índice
+- **Importación del CSV** con normalización de fechas e importes, detección de clientes y facturas duplicados y registro de incidencias. Se puede repetir sin duplicar datos.
+- **Listado de clientes** con búsqueda (empresa, contacto, CIF o email), filtros (estado, país, comercial), paginación y facturación acumulada.
+- **Ficha del cliente**: datos generales, contactos, facturas (base, IVA y total), facturación acumulada sin IVA e histórico de cambios.
+- **Alta, edición y borrado** de clientes y sus contactos, con validación y confirmación.
+- **Histórico**: cada cambio en un cliente o contacto guarda campo, valor anterior, valor nuevo, fecha y usuario.
+- **Autenticación** por sesión con cookie HttpOnly. Toda la API de clientes requiere sesión.
 
-1. [Descripción](#1-descripción)
-2. [Tecnologías](#2-tecnologías)
-3. [Estructura de carpetas](#3-estructura-de-carpetas)
-4. [Cómo arrancar](#4-cómo-arrancar)
-5. [Variables de entorno](#5-variables-de-entorno)
-6. [Acceso a la aplicación](#6-acceso-a-la-aplicación)
-7. [Usuario de demostración](#7-usuario-de-demostración)
-8. [Tests](#8-tests)
-9. [Cómo probar la API](#9-cómo-probar-la-api)
-10. [Base de datos](#10-base-de-datos)
-11. [Importación del CSV](#11-importación-del-csv)
-12. [Decisiones técnicas](#12-decisiones-técnicas)
-13. [Problemas encontrados y soluciones](#13-problemas-encontrados-y-soluciones)
-14. [Limitaciones conocidas](#14-limitaciones-conocidas)
-15. [Mejoras futuras](#15-mejoras-futuras)
+## Tecnologías
 
-Documentación adicional: [uso de IA](docs/USO_IA.md) · [guía de defensa técnica](docs/GUIA_DEFENSA_TECNICA.md)
-
----
-
-## 1. Descripción
-
-| Requisito | Qué hace la aplicación |
+| Capa | Tecnología |
 |---|---|
-| A · Base de datos | PostgreSQL con clientes, contactos, facturas, usuarios, sesiones, histórico e importaciones. Los datos del CSV se importan al arrancar. |
-| B · API REST | `GET/POST /api/clientes`, `GET/PUT/DELETE /api/clientes/:id`, `GET /api/clientes/:id/historico`. Todas exigen sesión. |
-| C · Interfaz web | Login, listado con buscador, filtros y paginación, ficha del cliente, formularios de alta y edición, confirmación al eliminar. |
-| D · Histórico | Cada cambio en un cliente o en sus contactos guarda registro, campo, valor anterior, valor nuevo, fecha y usuario. |
-| E · Puesta en marcha | `docker compose up` levanta base de datos, API y web. Tests con `npm test`. |
+| API | Node.js 22, TypeScript, Express 5, Zod (validación) |
+| Datos | PostgreSQL 17, Prisma 6 (ORM y migraciones) |
+| Web | React 19, TypeScript, Vite 7, React Router, lucide-react, CSS propio |
+| Seguridad | bcryptjs, helmet, express-rate-limit |
+| Infraestructura | Docker Compose: `db` (PostgreSQL), `api` (Express), `web` (nginx con la web compilada y proxy de `/api`) |
+| Tests | Vitest + Supertest |
 
-## 2. Tecnologías
+## Puesta en marcha
 
-| Capa | Tecnología | Por qué |
-|---|---|---|
-| API | **Node.js 22 + TypeScript + Express 5** | Express es el framework más conocido y sencillo de Node. Express 5 captura los errores de funciones `async` sin `try/catch`. TypeScript evita errores de tipos. |
-| Acceso a datos | **Prisma 6** | Esquema legible en un solo fichero, migraciones automáticas y consultas tipadas (parecido a Entity Framework). Las consultas son parametrizadas: sin riesgo de inyección SQL. |
-| Base de datos | **PostgreSQL 17** | Requisito de la prueba. |
-| Validación | **Zod** | Define en un sitio qué datos son válidos y genera mensajes de error por campo. |
-| Seguridad | **bcryptjs**, **helmet**, **express-rate-limit**, cookies HttpOnly | Contraseñas con hash, cabeceras de seguridad y límite de intentos de login. |
-| Web | **React 19 + TypeScript + Vite 7**, React Router, iconos **lucide-react** | Estándar actual, compilación rápida. CSS propio, sin framework de estilos. |
-| Servidor web | **nginx** | Sirve la web compilada y redirige `/api` a la API (mismo origen → la cookie funciona sin CORS). |
-| Infraestructura | **Docker + Docker Compose** | Arranque con un solo comando. |
-| Tests | **Vitest + Supertest** | Rápido, sintaxis tipo Jest, prueba los endpoints sin abrir un puerto. |
-
-Se eligió **Prisma 6** y no la 7 porque la 7 obliga a configurar *driver adapters* y un fichero de configuración extra: más piezas sin ventaja para este proyecto.
-
-## 3. Estructura de carpetas
-
-```
-.
-├── docker-compose.yml        # Orquesta db + api + web
-├── .env.example              # Variables de entorno documentadas
-├── api/                      # Ejemplos para probar la API (.http y curl)
-├── docs/                     # Uso de IA y guía de defensa técnica
-├── backend/
-│   ├── Dockerfile
-│   ├── data/clientes_antiguos.csv   # CSV que se importa al arrancar
-│   ├── prisma/
-│   │   ├── schema.prisma     # Modelo de datos (tablas, relaciones, restricciones)
-│   │   └── migrations/       # SQL generado por Prisma
-│   ├── src/
-│   │   ├── server.ts         # Arranca el servidor HTTP
-│   │   ├── app.ts            # Crea la app Express: middlewares y rutas
-│   │   ├── config.ts         # Lectura de variables de entorno
-│   │   ├── db.ts             # Instancia única de PrismaClient
-│   │   ├── routes/           # URL -> controlador
-│   │   ├── controllers/      # HTTP: valida la entrada, llama al servicio, responde
-│   │   ├── services/         # Lógica de negocio y acceso a datos
-│   │   ├── validation/       # Esquemas Zod
-│   │   ├── middleware/       # Autenticación y gestión de errores
-│   │   ├── import/           # Normalizadores + importador del CSV
-│   │   ├── scripts/          # seed.ts (arranque) e importar.ts (manual)
-│   │   └── utils/HttpError.ts
-│   └── tests/                # Tests con Vitest
-└── frontend/
-    ├── Dockerfile, nginx.conf
-    └── src/
-        ├── main.tsx, App.tsx # Punto de entrada y rutas
-        ├── api/              # Llamadas a la API (fetch)
-        ├── context/          # Sesión (AuthContext) y avisos (ToastContext)
-        ├── components/       # Layout, diálogo de confirmación, componentes comunes
-        ├── pages/            # Login, listado, ficha, formulario
-        ├── utils/formato.ts  # Formato de euros y fechas en español
-        └── styles.css
-```
-
-## 4. Cómo arrancar
-
-**Requisito:** Docker con Docker Compose v2.
+**Requisitos:** Docker con Docker Compose v2. Para ejecutar los tests en local, además Node.js 22.
 
 ```bash
 git clone <url-del-repositorio>
@@ -108,248 +38,178 @@ cd <carpeta>
 docker compose up --build
 ```
 
-No hace falta crear `.env`: si no existe se usan valores por defecto de desarrollo (ver siguiente apartado).
+No hace falta crear `.env`: sin él se usan valores de desarrollo local. Al arrancar, la API aplica las migraciones, crea el usuario de demostración e importa el CSV **solo si ese fichero no se había importado antes**, así que reiniciar no duplica ni sobrescribe datos.
 
-Al arrancar ocurre, por este orden:
-
-1. Se levanta **PostgreSQL** y Compose espera a que esté *healthy*.
-2. Arranca la **API**: aplica las migraciones (`prisma migrate deploy`), crea/actualiza el usuario de demostración, importa el CSV **solo si ese fichero no se había importado ya**, y empieza a escuchar.
-3. Cuando la API responde a `/api/health`, arranca **nginx** con la web.
-
-Comandos útiles:
-
-```bash
-docker compose up -d          # en segundo plano
-docker compose logs -f api    # ver logs (incluye el resumen de la importación)
-docker compose down           # parar (los datos se conservan en el volumen pgdata)
-docker compose down -v        # parar y BORRAR la base de datos (vuelve a importar al arrancar)
-```
-
-**Si un puerto está ocupado** (8085 para la web o 55432 para PostgreSQL), cambia `WEB_PORT` o `POSTGRES_PORT` en un `.env`.
-
-### Desarrollo sin Docker (opcional)
-
-```bash
-docker compose up -d db                       # solo la base de datos
-cd backend && npm install
-export DATABASE_URL=postgresql://clientes:clientes_dev@localhost:55432/clientes   # PowerShell: $env:DATABASE_URL="..."
-npx prisma migrate deploy && npm run seed && npm run dev    # API en :3000
-cd ../frontend && npm install && npm run dev                # Web en :5173 (redirige /api a :3000)
-```
-
-## 5. Variables de entorno
-
-Todas están documentadas en [`.env.example`](.env.example). Para personalizarlas: `cp .env.example .env`.
-
-| Variable | Por defecto | Uso |
-|---|---|---|
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `clientes` / `clientes` / `clientes_dev` | Base de datos que crea el contenedor. |
-| `POSTGRES_PORT` | `55432` | Puerto del equipo (solo `127.0.0.1`) para tests y clientes SQL. |
-| `WEB_PORT` | `8085` | Puerto de la web. |
-| `SESSION_HOURS` | `8` | Duración de la sesión. |
-| `COOKIE_SECURE` | `false` | `true` si se sirve por HTTPS. |
-| `DEMO_USER_EMAIL`, `DEMO_USER_NAME`, `DEMO_USER_PASSWORD` | `demo@empresa.local` / `Usuario Demo` / `Demo1234!` | Usuario de demostración. |
-
-La API recibe además `DATABASE_URL`, que `docker-compose.yml` construye a partir de las variables de PostgreSQL.
-
-> Los valores por defecto existen para que `docker compose up` funcione sin pasos previos en un repositorio recién clonado. **No son secretos**: son credenciales de desarrollo local. En cualquier otro entorno hay que definir un `.env` propio.
-
-## 6. Acceso a la aplicación
-
-| Qué | Dirección |
+| Servicio | Dirección |
 |---|---|
 | Web | http://localhost:8085 |
 | API (a través de nginx) | http://localhost:8085/api |
-| PostgreSQL | `localhost:55432` (usuario/contraseña de `.env`) |
-
-## 7. Usuario de demostración
-
-- Email: `demo@empresa.local`
-- Contraseña: `Demo1234!`
-
-> ⚠️ **Credenciales solo para desarrollo local.** Son públicas (están en este README y en `docker-compose.yml`) y existen únicamente para que la aplicación se pueda probar tras clonar el repositorio. **No son adecuadas para producción** ni para ningún entorno accesible por otras personas: en ese caso hay que crear un `.env` con `DEMO_USER_PASSWORD` y `POSTGRES_PASSWORD` propios y robustos (o no definir el usuario demo), y activar `COOKIE_SECURE=true` con HTTPS.
-
-Se crea en cada arranque con los valores de `DEMO_USER_EMAIL`, `DEMO_USER_NAME` y `DEMO_USER_PASSWORD` (`backend/src/scripts/seed.ts`). Si cambias la contraseña en `.env` y reinicias (`docker compose up -d`), se actualiza. La contraseña se guarda con **bcrypt** (nunca en claro) y debe tener al menos 8 caracteres. Si no se definen email o contraseña, no se crea ningún usuario.
-
-## 8. Tests
-
-Los tests usan una base de datos propia, **`clientes_test`**, dentro del mismo PostgreSQL de Docker (no tocan los datos de la aplicación).
+| PostgreSQL | `localhost:55432`, solo accesible desde el propio equipo |
 
 ```bash
-docker compose up -d db        # si no está ya arrancada
+docker compose logs -f api    # logs (incluye el resumen de la importación)
+docker compose down           # parar (los datos se conservan en el volumen pgdata)
+docker compose down -v        # parar y BORRAR la base de datos
+```
+
+Si un puerto está ocupado, copia `.env.example` a `.env` y cambia `WEB_PORT` o `POSTGRES_PORT`. Todas las variables están documentadas en [`.env.example`](.env.example).
+
+## Credenciales de demostración
+
+| Email | Contraseña |
+|---|---|
+| `demo@empresa.local` | `Demo1234!` |
+
+> ⚠️ **Solo para desarrollo local.** Estas credenciales son públicas y existen para que la aplicación se pueda probar tras clonar el repositorio. **No son adecuadas para producción.** En cualquier otro entorno, define en `.env` un `DEMO_USER_PASSWORD` y un `POSTGRES_PASSWORD` propios y activa `COOKIE_SECURE=true` con HTTPS.
+
+**Usar un usuario propio:** en `.env` define `DEMO_USER_EMAIL`, `DEMO_USER_NAME` y `DEMO_USER_PASSWORD` (mínimo 8 caracteres) y ejecuta `docker compose up -d`. El usuario se crea o se actualiza en cada arranque y su contraseña se guarda con bcrypt. Si `DEMO_USER_PASSWORD` está vacía, no se crea ningún usuario.
+
+## Tests
+
+Usan una base de datos propia (`clientes_test`) en el mismo PostgreSQL, sin tocar los datos de la aplicación.
+
+```bash
+docker compose up -d db
 cd backend
-npm install                    # solo la primera vez
+npm install
 npm test
 ```
 
-Resultado actual: **50 tests, 4 ficheros, todos en verde.**
+**50 tests** cubren:
+- normalización de fechas e importes;
+- importación del CSV real (contadores, duplicados, idempotencia, filas erróneas);
+- validaciones;
+- autenticación (401 en todos los endpoints, logout, sesión caducada);
+- búsqueda, filtros y paginación;
+- alta con CIF duplicado;
+- histórico (incluida la transacción: si algo falla no se guarda nada);
+- borrado lógico.
 
-| Fichero | Qué comprueba |
-|---|---|
-| `tests/normalizers.test.ts` | Fechas en todos los formatos del CSV, fechas imposibles (31/09), importes (`1.250`, `1.875,60`, `640.5`, `980,40 €`), IVA, CIF, email, país, comercial, cálculo de IVA y total. |
-| `tests/logica.test.ts` | Detección de cambios para el histórico (sin cambios → nada), suma exacta de la facturación, validaciones de cliente y contactos, fechas de alta inexistentes (`2026-09-31`) e ids fuera de rango. |
-| `tests/importacion.test.ts` | Importa el CSV real: 7 clientes, 8 contactos, 14 facturas, 1 duplicado, 2 rechazadas; fila sin CIF; repetir la importación no duplica; una fila mala no detiene el resto. |
-| `tests/api.test.ts` | 401 sin sesión en todos los endpoints de clientes (lectura y escritura), cookie inventada, cookie reutilizada tras el logout, sesión caducada, sin exposición del hash de la contraseña, login/logout y cookie HttpOnly, paginación, búsqueda (empresa, contacto, CIF, email), filtros, ficha, alta, CIF duplicado (409), validación (400), fecha de alta inexistente, JSON mal formado, histórico con usuario y valores (incluido borrar un contacto), no registrar si no cambia nada, transacción (si falla no se guarda nada), borrado lógico, cliente eliminado no modificable y su CIF reservado. |
+Por seguridad, los tests se niegan a vaciar una base de datos cuyo nombre no contenga `test`.
 
-Para usar otra base de datos de tests: variable `TEST_DATABASE_URL`. Por seguridad, los tests se niegan a vaciar una base de datos cuyo nombre no contenga `test`.
+Compilación: `npm run build` en `backend/` y en `frontend/`.
 
-Comprobaciones de compilación: `cd backend && npm run build` y `cd frontend && npm run build`.
+## API
 
-## 9. Cómo probar la API
+Ejemplos listos para usar: [`api/clientes.http`](api/clientes.http) (REST Client de VS Code o JetBrains) y [`api/ejemplos-curl.md`](api/ejemplos-curl.md).
 
-- **[`api/clientes.http`](api/clientes.http)**: colección de peticiones para la extensión *REST Client* de VS Code o el cliente HTTP de JetBrains. Empieza por el login; la cookie se reutiliza en las siguientes.
-- **[`api/ejemplos-curl.md`](api/ejemplos-curl.md)**: los mismos ejemplos con curl.
-
-### Endpoints
-
-| Método | Ruta | Descripción | Respuestas |
-|---|---|---|---|
-| POST | `/api/auth/login` | Inicia sesión `{ email, password }` y devuelve la cookie `sid` | 200, 400, 401, 429 |
-| POST | `/api/auth/logout` | Cierra la sesión | 204 |
-| GET | `/api/auth/me` | Usuario de la sesión actual | 200, 401 |
-| GET | `/api/clientes` | Listado paginado. Parámetros: `q` (empresa, contacto, CIF o email), `estado`, `pais`, `comercial`, `page`, `pageSize` (máx. 100) | 200, 400, 401 |
-| GET | `/api/clientes/:id` | Cliente con contactos, facturas, `facturacionAcumulada` y `actualizadoEn` | 200, 400, 401, 404 |
-| POST | `/api/clientes` | Crear cliente (con contactos opcionales) | 201, 400, 401, 409 |
-| PUT | `/api/clientes/:id` | Actualizar cliente y contactos | 200, 400, 401, 404, 409 |
-| DELETE | `/api/clientes/:id` | Borrado lógico | 204, 401, 404 |
-| GET | `/api/clientes/:id/historico` | Histórico de cambios (más reciente primero) | 200, 401, 404 |
-| GET | `/api/clientes/filtros` | Países y comerciales existentes (para los desplegables) | 200, 401 |
-| GET | `/api/clientes/resumen` | Total de clientes, activos y facturación total | 200, 401 |
-| GET | `/api/health` | Comprobación de estado (público) | 200 |
-
-Los errores siempre tienen la forma `{ "error": "mensaje", "detalles": [{ "campo": "cif", "mensaje": "..." }] }`.
-
-## 10. Base de datos
-
-```
-usuarios 1───* sesiones
-usuarios 1───* historial_cambios *───1 clientes
-                                        clientes 1───* contactos
-                                        clientes 1───* facturas
-importaciones (independiente: un registro por ejecución del importador)
-```
-
-| Tabla | Campos principales | Restricciones |
+| Método | Ruta | Descripción |
 |---|---|---|
-| `clientes` | id, empresa, cif, estado (`Activo`/`Inactivo`), direccion, cp, ciudad, pais, comercial, fecha_alta, creado_en, **actualizado_en**, eliminado_en | `cif` UNIQUE; `estado` es un ENUM; índices en estado, país y comercial |
-| `contactos` | id, cliente_id, nombre, email, telefono | FK → clientes |
-| `facturas` | id, cliente_id, numero, fecha, base_imponible, iva_porcentaje, iva_importe, total | `numero` UNIQUE; importes `DECIMAL(12,2)`; FK → clientes con `ON DELETE RESTRICT` |
-| `usuarios` | id, email, nombre, password_hash | `email` UNIQUE |
-| `sesiones` | id, token_hash, usuario_id, expira_en | `token_hash` UNIQUE; FK → usuarios |
-| `historial_cambios` | id, cliente_id, entidad (`cliente`/`contacto`), registro_id, accion (`CREAR`/`MODIFICAR`/`ELIMINAR`), campo, valor_anterior, valor_nuevo, usuario_id, fecha | FK → clientes y usuarios |
-| `importaciones` | id, archivo, hash_archivo, fecha, filas_leidas, clientes_creados, contactos_creados, facturas_creadas, duplicados, rechazadas, incidencias (JSON) | — |
+| POST | `/api/auth/login` · `/api/auth/logout` | Iniciar y cerrar sesión (cookie `sid`) |
+| GET | `/api/auth/me` | Usuario de la sesión |
+| GET | `/api/clientes` | Listado. Parámetros: `q`, `estado`, `pais`, `comercial`, `page`, `pageSize` (máx. 100) |
+| GET | `/api/clientes/:id` | Cliente con contactos, facturas, `facturacionAcumulada` y `actualizadoEn` |
+| POST | `/api/clientes` | Crear (201; 409 si el CIF ya existe) |
+| PUT | `/api/clientes/:id` | Actualizar cliente y contactos |
+| DELETE | `/api/clientes/:id` | Borrado lógico (204) |
+| GET | `/api/clientes/:id/historico` | Histórico de cambios |
+| GET | `/api/clientes/filtros` · `/api/clientes/resumen` | Opciones de filtros e indicadores del panel |
 
-- **Facturación acumulada**: no se guarda; se calcula al consultar con `SUM(base_imponible)` (sin IVA). Así nunca puede quedar desactualizada.
-- **Importes**: `DECIMAL(12,2)` en la base de datos y `Prisma.Decimal` en el código: sin errores de coma flotante (`0.1 + 0.2 = 0.30`).
-- **Fecha de última modificación**: `actualizado_en`, que Prisma actualiza en cada `UPDATE` del cliente (y que la API actualiza también cuando solo cambian sus contactos).
+- **Errores:** siempre tienen la forma `{ "error": "...", "detalles": [{ "campo": "...", "mensaje": "..." }] }`.
+- **Códigos:** 400 (datos no válidos), 401 (sin sesión), 404, 409 (conflicto) y 429 (demasiados intentos de login).
 
-El esquema completo está en [`backend/prisma/schema.prisma`](backend/prisma/schema.prisma) y el SQL generado en `backend/prisma/migrations/`.
-
-## 11. Importación del CSV
-
-Código: [`backend/src/import/`](backend/src/import/) (`normalizers.ts` = limpieza de valores, `csvImporter.ts` = proceso).
-
-### Proceso
-
-1. Se lee el CSV con `csv-parse` (separador `;`, UTF-8, admite comillas).
-2. Cada fila se **normaliza** con funciones puras (fáciles de testear).
-3. Cada fila se guarda en **su propia transacción**: si una fila falla, solo se pierde esa fila.
-4. **Clientes** se identifican por **CIF normalizado**; **facturas** por **número** (UNIQUE en la BD); **contactos** por **email** dentro del cliente (o nombre si no hay email).
-5. Lo que ya existe **no se duplica ni se sobrescribe** → la importación se puede repetir.
-6. El resumen (contadores + lista de incidencias con su número de línea) se guarda en la tabla `importaciones` y se muestra en el log.
-
-Al arrancar el contenedor se importa solo si **ese mismo fichero** (mismo hash SHA-256) no se había importado. Así, reiniciar no vuelve a crear clientes que un usuario haya borrado. Para forzar una importación manual: `docker compose exec api node dist/src/scripts/importar.js` (o `npm run importar` en local).
-
-### Anomalías encontradas en el CSV y cómo se tratan
-
-| Línea | Problema | Decisión |
-|---|---|---|
-| 2, 7, 12 | `base_imponible` = `1.250`, `2.300`, `2.150`: el punto es separador de **miles** | Un número con solo puntos en grupos de 3 cifras se interpreta como miles → 1250,00 |
-| 4 | `640.5`: el punto es **decimal** | Si tras el punto no hay exactamente 3 cifras, es decimal → 640,50 |
-| 3, 5, 13 | `1.875,60`, `3.420,00`: formato español | La coma es el decimal y los puntos se eliminan |
-| 11 | `980,40 €`: con símbolo de moneda | Se elimina `€` y espacios |
-| 3, 11, 13 | IVA `21` o `0` sin `%` | Se acepta con o sin `%` |
-| 4, 5, 10 | Fechas `5/3/25`, `12-06-2025`, `2025-01-14` | Se aceptan `d/m/aa`, `dd-mm-aaaa`, `aaaa-mm-dd`. Siempre **día/mes** (España). Año de 2 cifras → 20xx |
-| 9 | Factura `F-2026-0108` con fecha **`31/09/2026`** (no existe) | **Factura rechazada** (no se inventa la fecha). El cliente sí se mantiene |
-| 15 | Factura `F-2026-0113` **sin base imponible** | **Factura rechazada** (no se inventa el importe) |
-| 18 | Factura `F-2026-0115` **repetida** (fila idéntica a la 17) | Se ignora y se cuenta como duplicado |
-| 10 | `CONSTRUCCIONES EBRO, S.L.`, CIF `b-50123456`, `ZARAGOZA`, `ESPAÑA`, `elena sanz`, `ACTIVO` | Mismo cliente (CIF normalizado `B50123456`). Se conservan los datos de la primera aparición. **Pablo Ruiz** se añade como segundo contacto |
-| 11 | Email `" Lucia@ClinicaSonrisa.es"` (espacio y mayúsculas), teléfono `+34915551234` | Emails en minúsculas y sin espacios → mismo contacto que la línea 4. No se duplica |
-| 15 | `RAUL@LOGISTICADUERO.ES`, teléfono `+34 983 445 566` | Mismo contacto. Los teléfonos se comparan por dígitos sin prefijo `+34` |
-| 16 | `Hotel Mar Blau` **sin CIF** | **Caso ambiguo.** El email del contacto (`toni.ferrer@hotelmarblau.com`) pertenece a *Hotel Mar Blau SA* (A07123987) → se asocia a ese cliente y se registra un aviso. Si un registro sin CIF no puede asociarse por email, se rechaza |
-| 5, 8, 9, 10, 13 | Países `Spain`, `ESPAÑA`, `PT`, `Portugal`, `Italy`, `Italia` | Se unifican: España, Portugal, Italia, Francia |
-| 10, 11, 13 | Comercial `elena sanz`, `jordi puig`, `Elena  Sanz` (doble espacio) | Espacios colapsados y mayúscula inicial: `Elena Sanz` |
-| 14 | `Atelier Lumière SARL` **sin factura** | Se importa el cliente y su contacto; aviso informativo |
-| 7, 8, 14 | CIF extranjeros (`IT…`, `PT…`, `FR…`) | Se aceptan: se valida formato genérico (8-15 letras/números), no el algoritmo del CIF español |
-
-### Resultado
+## Estructura
 
 ```
-Filas leídas: 18 · Clientes: 7 · Contactos: 8 · Facturas: 14 · Duplicados: 1 · Rechazadas: 2
-Facturación total importada (sin IVA): 17.982,05 €
+├── docker-compose.yml, .env.example
+├── api/                    # Ejemplos de peticiones
+├── docs/USO_IA.md          # Uso de inteligencia artificial
+├── backend/
+│   ├── data/               # CSV que se importa al arrancar
+│   ├── prisma/             # schema.prisma y migraciones
+│   ├── src/
+│   │   ├── routes/         # URL → controlador
+│   │   ├── controllers/    # Entrada/salida HTTP
+│   │   ├── services/       # Lógica de negocio, consultas e histórico
+│   │   ├── validation/     # Esquemas Zod
+│   │   ├── middleware/     # Autenticación y gestión de errores
+│   │   ├── import/         # Normalizadores e importador del CSV
+│   │   └── scripts/        # seed (arranque) e importación manual
+│   └── tests/
+└── frontend/
+    ├── nginx.conf
+    └── src/
+        ├── api/            # Llamadas a la API
+        ├── context/        # Sesión y avisos
+        ├── components/
+        └── pages/          # Login, listado, ficha, formulario
 ```
 
-## 12. Decisiones técnicas
+## Base de datos
 
-Decisiones tomadas porque el enunciado no las especificaba:
-
-- **Arquitectura en capas sencilla**: `routes → controllers → services → Prisma`. Equivale a Controller → Service → DbContext de ASP.NET. Sin repositorios ni inyección de dependencias: no aportan nada en una aplicación de este tamaño.
-- **Autenticación con sesiones en BD + cookie HttpOnly** (no JWT). Más simple y más segura para una web: el token no es accesible desde JavaScript, se puede invalidar en el logout y en la tabla solo se guarda su hash SHA-256. `SameSite=Strict` protege frente a CSRF. Límite de 10 intentos de login cada 15 minutos por IP.
-- **Sin roles**: todos los usuarios autenticados pueden hacer todo (no se pedía).
-- **Eliminación = borrado lógico** (`eliminado_en`). Las facturas son documentos fiscales y el histórico es una auditoría: no deben perderse. El cliente desaparece del listado, de la ficha y de los filtros, pero su histórico sigue consultable por API y se registra la baja. La FK de facturas es `RESTRICT` para impedir borrados físicos accidentales. Consecuencia: no se puede crear otro cliente con el CIF de un cliente eliminado (la API lo explica con un 409).
-- **PUT reemplaza el cliente completo**: los campos opcionales que no se envían quedan vacíos. Los contactos se gestionan en el mismo PUT (con `id` = actualizar; sin `id` = crear; ausentes = borrar). Si no se envía `contactos`, no se tocan.
-- **Histórico**: una fila por campo modificado. Se registran también altas/bajas de clientes y de contactos (`accion` = CREAR/ELIMINAR). Si una petición no cambia nada, no se escribe nada (ni se cambia la fecha de modificación). El cambio y su histórico van en la **misma transacción**.
-- **La importación no genera histórico**: no hay un usuario responsable; su trazabilidad está en la tabla `importaciones`.
-- **Contacto principal** = el primer contacto del cliente (el más antiguo).
-- **Normalización también en la API**: el CIF se guarda sin guiones ni espacios y en mayúsculas; el país se unifica (`spain` → `España`); los emails en minúsculas. Así los filtros y la detección de duplicados son coherentes.
-- **CIF**: validación de formato genérico (8-15 caracteres alfanuméricos) porque hay clientes de Italia, Portugal y Francia.
-- **Facturas solo de lectura**: el enunciado pide ver las facturas en la ficha, no gestionarlas. Solo entran por la importación.
-- **nginx como proxy** de `/api`: web y API comparten origen, sin configurar CORS.
-- **Puertos por defecto poco habituales** (8085 y 55432) para reducir conflictos con otros proyectos en el equipo del evaluador.
-- **Panel de indicadores** (total, activos, facturación): opcional, se añadió porque era muy pequeño (un endpoint con 3 consultas).
-
-## 13. Problemas encontrados y soluciones
-
-| Problema | Solución |
+| Tabla | Contenido |
 |---|---|
-| `1.250` (miles) frente a `640.5` (decimal): mismo símbolo, distinto significado | Regla explícita (grupos de 3 cifras = miles) documentada y cubierta por tests |
-| Fecha imposible `31/09/2026`: `new Date` de JavaScript la convierte silenciosamente en 01/10 | Se comprueba que día, mes y año no cambian tras crear la fecha |
-| Fila sin CIF | Asociación por email del contacto, con aviso; si no es posible, se rechaza |
-| Reiniciar los contenedores no debe reimportar | Hash del fichero guardado en `importaciones`; además la importación es idempotente |
-| `prisma migrate reset` (usado inicialmente para preparar la BD de tests) está bloqueado por Prisma cuando lo ejecuta un agente de IA, porque borra datos | Se sustituyó por `prisma migrate deploy` (no destructivo) + `TRUNCATE` protegido para que solo actúe sobre una BD cuyo nombre contenga `test` |
-| `csv-parse` 7 solo publica `csv-parse/sync` mediante `exports` | `moduleResolution: node16` en el `tsconfig` del backend |
-| Puertos 5433 y 8080 ocupados en el equipo de desarrollo | Puertos por defecto 55432 y 8085, configurables |
-| La API aceptaba fechas de alta inexistentes: `Date.parse('2026-09-31')` no falla, devuelve el 1 de octubre, y se guardaba esa fecha | La validación usa `normalizarFecha()`, la misma comprobación estricta del importador. Test con 7 fechas inválidas y el 29/02 de un año bisiesto |
-| Un id mayor que el máximo de `INTEGER` (`/api/clientes/99999999999`) provocaba un error 500 en PostgreSQL | Los ids se validan con un máximo de 2.147.483.647 → 400 |
-| Al probar desde un clon limpio, los tests fallaban: tras `npm ci` no existía el cliente generado de Prisma | `"postinstall": "prisma generate"` en `backend/package.json` |
-| Ficheros con finales de línea CRLF en Windows | `.gitattributes` fuerza LF (los contenedores son Linux) |
-| Vulnerabilidades de `npm audit` en versiones iniciales de zod, csv-parse y express-rate-limit | Actualizadas a versiones corregidas |
+| `clientes` | Empresa, CIF, estado, dirección, ciudad, país, comercial, fechas de alta y de última modificación, `eliminado_en` |
+| `contactos` | Nombre, email y teléfono de cada cliente |
+| `facturas` | Número, fecha, base imponible, % IVA, cuota de IVA y total |
+| `usuarios`, `sesiones` | Credenciales (hash bcrypt) y sesiones (hash SHA-256 del token) |
+| `historial_cambios` | Entidad y registro modificados, acción, campo, valor anterior, valor nuevo, usuario y fecha |
+| `importaciones` | Resumen de cada importación, con sus incidencias |
 
-## 14. Limitaciones conocidas
+- **Restricciones:** `cif`, `numero` de factura y `email` de usuario son UNIQUE.
+- **Importes:** `DECIMAL(12,2)`.
+- **Claves foráneas:** facturas e histórico usan `ON DELETE RESTRICT`.
+- **Facturación acumulada:** es la suma de bases imponibles sin IVA y se calcula al consultar; no se guarda, para que nunca quede desactualizada.
 
-- **Dependencias con avisos de `npm audit`** (revisado el 28/10/2026; frontend: 0 vulnerabilidades). Ninguna se corrige sin un cambio de versión mayor, por lo que se han dejado documentadas:
+## Importación del CSV
 
-  | Paquete | Gravedad | Dónde se usa | Riesgo real para esta aplicación |
-  |---|---|---|---|
-  | `deepmerge-ts` (vía `prisma` → `@prisma/config`) | Alta | **CLI** de Prisma 6. Está en la imagen de la API porque `prisma migrate deploy` se ejecuta al arrancar | Bajo. Es un agotamiento de pila al combinar objetos recursivos. El CLI solo combina su configuración por defecto (el proyecto no tiene `prisma.config.ts`), nunca datos de una petición HTTP. El cliente que usa la API en ejecución (`@prisma/client`) no lo utiliza. Solución: migrar a Prisma 7 (cambio mayor). |
-  | `vitest`, `tinypool`, `@vitest/mocker` | Crítica / moderada | Solo para ejecutar los tests en local (`devDependencies`) | Ninguno en ejecución: **no están en la imagen Docker** (comprobado dentro del contenedor). Requieren que un atacante controle las opciones del ejecutor de tests. Solución: Vitest 4.1.11+ o 5 (cambio mayor). |
-- La búsqueda no ignora tildes: `Lucia` encuentra el email `lucia@…`, pero no el nombre `Lucía`. (Se resolvería con la extensión `unaccent` de PostgreSQL.)
-- No hay gestión de usuarios desde la web: solo el usuario de demostración, configurado por variables de entorno.
-- Las facturas no se pueden crear ni editar desde la aplicación (no se pedía).
-- No se puede reactivar un cliente eliminado desde la web (solo en la BD poniendo `eliminado_en = NULL`).
-- Si dos usuarios editan el mismo cliente a la vez, gana el último en guardar (no hay control de concurrencia optimista).
-- La interfaz no tiene tests automáticos. Se ha comprobado que compila, que todas las llamadas que hace a la API funcionan y, **manualmente en el navegador**, el inicio de sesión, el listado, la ficha, la edición de un cliente y su reflejo en el histórico. No se han probado en navegador (ni de forma automatizada) el resto de flujos: alta, errores del formulario, eliminación, filtros, paginación y vista móvil (ver `docs/USO_IA.md`).
-- Los tests necesitan el PostgreSQL de Docker arrancado.
+Código en [`backend/src/import/`](backend/src/import/). Cada fila se procesa en su propia transacción, así que una fila errónea no impide importar el resto. La importación nunca inventa datos que falten.
 
-## 15. Mejoras futuras
+| Anomalía | Decisión |
+|---|---|
+| Importes `1.250` / `1.875,60` / `640.5` / `980,40 €` | Coma decimal y punto de miles (formato español). Solo puntos en grupos de 3 cifras = miles. Se quita `€` |
+| Fechas `14/01/2025`, `5/3/25`, `12-06-2025`, `2025-01-14` | Se aceptan todas, siempre como día/mes |
+| Factura `F-2026-0108` con fecha `31/09/2026` | Factura rechazada (la fecha no existe) |
+| Factura `F-2026-0113` sin base imponible | Factura rechazada |
+| Factura `F-2026-0115` repetida | Se ignora (duplicado) |
+| `CONSTRUCCIONES EBRO, S.L.` con CIF `b-50123456` | Mismo cliente: se agrupa por CIF normalizado y se conservan los datos de la primera aparición |
+| Emails con mayúsculas o espacios, teléfonos con o sin `+34` | Se normalizan: el contacto no se duplica |
+| Fila "Hotel Mar Blau" sin CIF | Se asocia a Hotel Mar Blau SA porque el email del contacto ya es suyo; si no hubiera coincidencia, se rechazaría |
+| Países `Spain`, `ESPAÑA`, `PT`, `Italy`; comerciales en minúsculas | Se unifican (España, Portugal, Italia; `Elena Sanz`) |
+| Cliente sin facturas, CIF extranjeros | Se importan |
 
-1. Pasar a Prisma 7 y Vitest 5 para eliminar los avisos de `npm audit`.
-2. Tests end-to-end de la interfaz (Playwright) y tests de componentes (React Testing Library).
-3. Búsqueda sin tildes (`unaccent`) y ordenación por columnas en la tabla.
-4. Gestión de usuarios y roles (p. ej. solo administración puede eliminar).
-5. Control de concurrencia (comparar `actualizado_en` antes de guardar).
-6. Alta y edición de facturas, y exportación del listado a CSV/Excel.
-7. Papelera para restaurar clientes eliminados.
-8. Subir CSV desde la web y ver el informe de importación.
-9. CI (GitHub Actions) que ejecute build y tests en cada push.
-10. Logs estructurados y despliegue con HTTPS (`COOKIE_SECURE=true`).
+**Resultado:** 18 filas → 7 clientes, 8 contactos, 14 facturas, 1 duplicado y 2 facturas rechazadas. Facturación total: 17.982,05 €.
+
+Importación manual (es idempotente): `docker compose exec api node dist/src/scripts/importar.js`.
+
+## Decisiones técnicas
+
+- **Capas sencillas:** `routes → controllers → services → Prisma`. Sin repositorios ni inyección de dependencias, que no aportan nada a este tamaño de proyecto.
+- **Sesiones en base de datos con cookie `HttpOnly` y `SameSite=Strict`** en lugar de JWT: el token no es accesible desde JavaScript, el logout lo invalida de verdad y en la base de datos solo se guarda su hash. El login está limitado a 10 intentos cada 15 minutos por IP.
+- **Borrado lógico** (`eliminado_en`): las facturas son documentos fiscales y el histórico es una auditoría, así que se conservan. El cliente eliminado desaparece de la aplicación y su CIF queda reservado (409).
+- **PUT reemplaza el cliente completo.** En los contactos: con `id` se actualiza, sin `id` se crea y si no aparece se borra. Si no se envía `contactos`, no se tocan.
+- **Histórico:**
+  - una fila por campo modificado, en la misma transacción que el cambio;
+  - si nada cambia, no se escribe nada;
+  - también se registran las altas y bajas de clientes y contactos;
+  - la importación no genera histórico porque no hay un usuario responsable; queda registrada en `importaciones`.
+- **Validación estricta de fechas:** se comprueba que la fecha exista, con la misma función que usa el importador. `Date.parse` no sirve porque convierte `2026-09-31` en el 1 de octubre.
+- **CIF:** validación de formato genérico (8-15 caracteres alfanuméricos), porque hay clientes de Italia, Portugal y Francia.
+- **Facturas de solo lectura:** el enunciado pide mostrarlas, no gestionarlas.
+- **nginx como proxy de `/api`:** web y API comparten origen, así que no hace falta configurar CORS.
+- **Prisma 6 y no 7:** la versión 7 exige *driver adapters* y configuración extra.
+- **Puertos 8085 y 55432:** se eligieron para reducir conflictos con otros proyectos.
+
+## Limitaciones conocidas
+
+- **`npm audit`** (frontend: 0 vulnerabilidades). Los avisos del backend solo se corrigen con versiones mayores:
+  - **`deepmerge-ts`** (gravedad alta), dependencia del CLI de Prisma 6. Está en la imagen de producción, pero solo se usa en `prisma migrate deploy` al arrancar y nunca con datos de una petición. Riesgo bajo.
+  - **`vitest`, `tinypool` y `@vitest/mocker`** (crítica/moderada). Son herramientas de test que no están en la imagen Docker. Sin riesgo en ejecución.
+- **Búsqueda:** no ignora tildes (`Lucia` no encuentra `Lucía`).
+- **Usuarios:** no hay gestión de usuarios ni roles; el usuario de acceso se configura por variables de entorno.
+- **Facturas y clientes eliminados:** las facturas no se editan desde la aplicación, y un cliente eliminado no se puede restaurar desde la web.
+- **Concurrencia:** no hay control de concurrencia; si dos personas editan el mismo cliente, gana la última en guardar.
+- **Pruebas de la interfaz:** no hay tests automáticos; la interfaz se ha probado manualmente (ver [`docs/USO_IA.md`](docs/USO_IA.md)).
+
+## Mejoras futuras
+
+1. Prisma 7 y Vitest 5 para eliminar los avisos de `npm audit`.
+2. Tests end-to-end de la interfaz (Playwright).
+3. Búsqueda sin tildes (`unaccent`) y ordenación por columnas.
+4. Gestión de usuarios y roles, y control de concurrencia con `actualizado_en`.
+5. Alta y edición de facturas, exportación a Excel y papelera para restaurar clientes.
+6. CI con GitHub Actions y despliegue con HTTPS.
+
+## Uso de inteligencia artificial
+
+El proyecto se ha desarrollado con ayuda de **Claude Code**. En [`docs/USO_IA.md`](docs/USO_IA.md) se explica cómo: prompts, fases, verificaciones, correcciones y limitaciones.
