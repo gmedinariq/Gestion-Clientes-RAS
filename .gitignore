@@ -2,6 +2,7 @@
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
 
 # Variables de entorno (nunca se suben; usar .env.example como plantilla)
 .env
