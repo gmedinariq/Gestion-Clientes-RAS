@@ -30,7 +30,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo@empresa.local}
       DEMO_USER_NAME: ${DEMO_USER_NAME:-Usuario Demo}
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-Demo1234!}
+      # "-" y no ":-": el valor por defecto solo se usa si la variable no existe. Si en .env está
+      # vacía, no se crea el usuario (así nunca se le asigna la contraseña pública por error).
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD-Demo1234!}
     depends_on:
       db:
         condition: service_healthy # espera a que PostgreSQL acepte conexiones
