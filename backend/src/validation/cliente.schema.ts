@@ -3,7 +3,10 @@
 // .parse() lanza un ZodError y el errorHandler responde 400 con la lista de campos erróneos.
 
 import { z } from 'zod';
-import { limpiarTexto, normalizarCif, normalizarPais } from '../import/normalizers';
+import { limpiarTexto, normalizarCif, normalizarFecha, normalizarPais } from '../import/normalizers';
+
+// Mayor valor de una columna INTEGER de PostgreSQL. Un id mayor haría fallar la consulta (error 500).
+const MAX_ID = 2147483647;
 
 /** Texto opcional: "" o solo espacios se guarda como null. */
 const textoOpcional = (max: number) =>
@@ -14,7 +17,7 @@ const textoOpcional = (max: number) =>
     .transform((v) => limpiarTexto(v));
 
 export const contactoSchema = z.object({
-  id: z.number().int().positive().optional(), // si viene, es un contacto existente que se actualiza
+  id: z.number().int().positive().max(MAX_ID).optional(), // si viene, es un contacto existente que se actualiza
   nombre: z.string().trim().min(1, 'El nombre del contacto es obligatorio').max(150),
   email: z
     .string()
@@ -42,11 +45,14 @@ export const clienteSchema = z.object({
   ciudad: textoOpcional(100),
   pais: textoOpcional(100).transform((v) => normalizarPais(v)),
   comercial: textoOpcional(100),
-  // Fecha de alta en formato AAAA-MM-DD. Si no se envía, se usa la fecha de hoy.
+  // Fecha de alta en formato AAAA-MM-DD. Si no se envía: al crear se usa la fecha de hoy
+  // y al actualizar se conserva la que tenía.
+  // No se usa Date.parse(): acepta fechas inexistentes ("2026-09-31" -> 1 de octubre).
+  // normalizarFecha() es la misma comprobación estricta que usa el importador del CSV.
   fechaAlta: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de alta no válida (AAAA-MM-DD)')
-    .refine((v) => !Number.isNaN(Date.parse(v)), 'Fecha de alta no válida')
+    .refine((v) => normalizarFecha(v) !== null, 'La fecha de alta no existe')
     .optional(),
   // Lista completa de contactos. En PUT: los que traen id se actualizan, los que no traen id se crean
   // y los que ya no aparecen se borran. Si no se envía "contactos", los contactos no se tocan.
@@ -67,7 +73,11 @@ export const listadoSchema = z.object({
 
 export type FiltrosListado = z.infer<typeof listadoSchema>;
 
-export const idSchema = z.coerce.number({ error: 'Id no válido' }).int().positive('Id no válido');
+export const idSchema = z.coerce
+  .number({ error: 'Id no válido' })
+  .int('Id no válido')
+  .positive('Id no válido')
+  .max(MAX_ID, 'Id no válido');
 
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().min(1, 'El email es obligatorio').max(200),

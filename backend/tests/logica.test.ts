@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcularCambios } from '../src/services/historial.service';
 import { sumarBases } from '../src/services/clientes.service';
-import { clienteSchema } from '../src/validation/cliente.schema';
+import { clienteSchema, idSchema } from '../src/validation/cliente.schema';
 
 describe('calcularCambios (histórico)', () => {
   const antes = { empresa: 'Acme SL', ciudad: 'Madrid', pais: null as string | null, fechaAlta: new Date('2025-01-14') };
@@ -51,6 +51,24 @@ describe('clienteSchema (validación)', () => {
     expect(resultado.success).toBe(false);
     const campos = resultado.error!.issues.map((i) => i.path.join('.'));
     expect(campos).toEqual(expect.arrayContaining(['empresa', 'cif', 'estado']));
+  });
+
+  it('acepta fechas de alta válidas, incluido el 29 de febrero de un año bisiesto', () => {
+    expect(clienteSchema.parse({ ...valido, fechaAlta: '2026-10-28' }).fechaAlta).toBe('2026-10-28');
+    expect(clienteSchema.parse({ ...valido, fechaAlta: '2024-02-29' }).fechaAlta).toBe('2024-02-29');
+  });
+
+  it('rechaza fechas de alta que no existen o con otro formato', () => {
+    // Date.parse('2026-09-31') no falla: lo convierte en 1 de octubre. Por eso no se usa.
+    for (const fechaAlta of ['2026-09-31', '2026-02-29', '2026-02-30', '2026-13-01', '2026-00-10', '31/09/2026', '2026-9-1']) {
+      expect(clienteSchema.safeParse({ ...valido, fechaAlta }).success, fechaAlta).toBe(false);
+    }
+  });
+
+  it('rechaza ids que no caben en un INTEGER de PostgreSQL', () => {
+    expect(idSchema.safeParse('2147483647').success).toBe(true);
+    expect(idSchema.safeParse('2147483648').success).toBe(false);
+    expect(clienteSchema.safeParse({ ...valido, contactos: [{ id: 99999999999, nombre: 'Ana' }] }).success).toBe(false);
   });
 
   it('valida el email y el teléfono de los contactos', () => {

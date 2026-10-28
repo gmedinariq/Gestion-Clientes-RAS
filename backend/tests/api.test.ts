@@ -30,6 +30,35 @@ describe('Autenticación', () => {
     await request(app).get('/api/clientes/1').expect(401);
     await request(app).post('/api/clientes').send(nuevoCliente).expect(401);
     await request(app).get('/api/clientes/1/historico').expect(401);
+    await request(app).put('/api/clientes/1').send(nuevoCliente).expect(401);
+    await request(app).delete('/api/clientes/1').expect(401);
+    await request(app).get('/api/clientes/filtros').expect(401);
+    await request(app).get('/api/clientes/resumen').expect(401);
+    await request(app).get('/api/clientes').set('Cookie', 'sid=token-inventado').expect(401);
+    expect(await prisma.cliente.count({ where: { eliminadoEn: null } })).toBe(7); // nada se ha modificado
+  });
+
+  it('tras el logout, la cookie antigua deja de servir aunque se reenvíe', async () => {
+    const login = await request(app).post('/api/auth/login').send({ email: USUARIO_TEST.email, password: USUARIO_TEST.password });
+    const cookie = login.headers['set-cookie'][0].split(';')[0]; // "sid=..."
+
+    await request(app).get('/api/clientes').set('Cookie', cookie).expect(200);
+    await request(app).post('/api/auth/logout').set('Cookie', cookie).expect(204);
+    await request(app).get('/api/clientes').set('Cookie', cookie).expect(401);
+  });
+
+  it('una sesión caducada no da acceso', async () => {
+    const login = await request(app).post('/api/auth/login').send({ email: USUARIO_TEST.email, password: USUARIO_TEST.password });
+    const cookie = login.headers['set-cookie'][0].split(';')[0];
+    await prisma.sesion.updateMany({ data: { expiraEn: new Date(Date.now() - 1000) } });
+
+    await request(app).get('/api/clientes').set('Cookie', cookie).expect(401);
+  });
+
+  it('las respuestas no exponen el hash de la contraseña', async () => {
+    const agente = await agenteAutenticado();
+    const me = await agente.get('/api/auth/me').expect(200);
+    expect(JSON.stringify(me.body)).not.toMatch(/passwordHash|\$2[aby]\$/);
   });
 
   it('rechaza una contraseña incorrecta', async () => {
@@ -106,6 +135,7 @@ describe('GET /api/clientes/:id', () => {
     const agente = await agenteAutenticado();
     await agente.get('/api/clientes/99999').expect(404);
     await agente.get('/api/clientes/abc').expect(400);
+    await agente.get('/api/clientes/99999999999').expect(400); // fuera de rango de INTEGER: no debe dar 500
   });
 });
 
@@ -127,6 +157,22 @@ describe('POST /api/clientes', () => {
     const agente = await agenteAutenticado();
     const res = await agente.post('/api/clientes').send({ empresa: '', cif: 'X', estado: 'Activo' }).expect(400);
     expect(res.body.detalles.map((d: { campo: string }) => d.campo)).toEqual(expect.arrayContaining(['empresa', 'cif']));
+  });
+
+  it('rechaza una fecha de alta inexistente y acepta una válida', async () => {
+    const agente = await agenteAutenticado();
+    const res = await agente.post('/api/clientes').send({ ...nuevoCliente, fechaAlta: '2026-09-31' }).expect(400);
+    expect(res.body.detalles[0].campo).toBe('fechaAlta');
+    expect(await prisma.cliente.count({ where: { cif: 'B99999999' } })).toBe(0);
+
+    const ok = await agente.post('/api/clientes').send({ ...nuevoCliente, fechaAlta: '2024-02-29' }).expect(201);
+    expect(ok.body.fechaAlta.slice(0, 10)).toBe('2024-02-29');
+  });
+
+  it('responde 400 (no 500) a cuerpos que no son JSON válido', async () => {
+    const agente = await agenteAutenticado();
+    await agente.post('/api/clientes').set('Content-Type', 'application/json').send('{"empresa": ').expect(400);
+    await agente.post('/api/clientes').set('Content-Type', 'text/plain').send('hola').expect(400);
   });
 });
 
