@@ -317,6 +317,7 @@ Decisiones tomadas porque el enunciado no las especificaba:
 | `prisma migrate reset` (usado inicialmente para preparar la BD de tests) está bloqueado por Prisma cuando lo ejecuta un agente de IA, porque borra datos | Se sustituyó por `prisma migrate deploy` (no destructivo) + `TRUNCATE` protegido para que solo actúe sobre una BD cuyo nombre contenga `test` |
 | `csv-parse` 7 solo publica `csv-parse/sync` mediante `exports` | `moduleResolution: node16` en el `tsconfig` del backend |
 | Puertos 5433 y 8080 ocupados en el equipo de desarrollo | Puertos por defecto 55432 y 8085, configurables |
+| Al probar desde un clon limpio, los tests fallaban: tras `npm ci` no existía el cliente generado de Prisma | `"postinstall": "prisma generate"` en `backend/package.json` |
 | Ficheros con finales de línea CRLF en Windows | `.gitattributes` fuerza LF (los contenedores son Linux) |
 | Vulnerabilidades de `npm audit` en versiones iniciales de zod, csv-parse y express-rate-limit | Actualizadas a versiones corregidas |
 

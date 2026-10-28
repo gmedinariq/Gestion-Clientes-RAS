@@ -64,6 +64,7 @@ Todas están explicadas en el README (apartado 12).
 | Persistencia | Modificar un cliente por API → `docker compose down` (sin `-v`) → `up` | El cambio y el histórico se conservan, la sesión sigue válida y la importación se omite |
 | Histórico | PUT con cambios en cliente y en un contacto | Solo se registran los campos que cambian, con valor anterior, nuevo y usuario |
 | Ejemplo `.http` | Ejecutando el PUT del fichero con curl | 200 y dos entradas de histórico correctas |
+| Repositorio recién clonado | `git clone` en una carpeta temporal, sin `.env`: `docker compose up --build`, `npm ci`, `npm test`, `npm run build` (backend y frontend) | Todo correcto (tras corregir el `postinstall`, ver abajo) |
 | Importación manual en el contenedor | `docker compose exec api node dist/src/scripts/importar.js` | Funciona; avisa de que el comercial de un cliente difiere y no lo sobrescribe |
 
 ### Lo que NO se pudo comprobar en la sesión
@@ -85,7 +86,8 @@ Todas están explicadas en el README (apartado 12).
 4. **`vitest.config.ts` → `.mts`**: TypeScript no podía importar Vitest (módulo ES) desde un fichero CommonJS.
 5. **Puertos ocupados** (5433 y 8080) en mi equipo: se cambiaron los puertos por defecto.
 6. **Finales de línea**: se añadió `.gitattributes` para forzar LF y evitar problemas en los contenedores Linux.
-7. **Ids del ejemplo PUT** en `api/clientes.http`: se comprobaron contra la base de datos real y se corrigió el id de un contacto.
+7. **Fallo detectado al probar desde un clon limpio**: tras `git clone` + `npm ci`, los tests fallaban porque el cliente de Prisma no estaba generado (en la carpeta de trabajo sí lo estaba). Se añadió `"postinstall": "prisma generate"` y se reordenó el Dockerfile. Después se repitió la prueba completa desde un clon nuevo: Docker, 40/40 tests y builds correctos.
+8. **Ids del ejemplo PUT** en `api/clientes.http`: se comprobaron contra la base de datos real y se corrigió el id de un contacto.
 
 ## Cómo se ha comprobado el código generado
 
