@@ -1,0 +1,112 @@
+### Colección de ejemplos de la API.
+### Se ejecuta con la extensión "REST Client" de VS Code o con el cliente HTTP de JetBrains
+### (botón "Send Request" encima de cada petición). Las peticiones van por orden:
+### primero el login (guarda la cookie de sesión) y después el resto.
+### Equivalentes con curl en api/ejemplos-curl.md
+
+@base = http://localhost:8085/api
+
+### 0. Estado de la API (público)
+GET {{base}}/health
+
+### 1. Sin sesión -> 401
+GET {{base}}/clientes
+
+### 2. Login (la respuesta incluye la cookie "sid", HttpOnly)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@empresa.local",
+  "password": "Demo1234!"
+}
+
+### 3. Usuario de la sesión actual
+GET {{base}}/auth/me
+
+### 4. Listado paginado
+GET {{base}}/clientes?page=1&pageSize=10
+
+### 5. Búsqueda (empresa, contacto, CIF o email)
+GET {{base}}/clientes?q=ebro
+
+### 6. Búsqueda por email de contacto
+GET {{base}}/clientes?q=lucia@clinicasonrisa.es
+
+### 7. Filtros combinados: estado, país y comercial
+GET {{base}}/clientes?estado=Activo&pais=España&comercial=Jordi Puig
+
+### 8. Ficha completa de un cliente (contactos, facturas y facturación acumulada)
+GET {{base}}/clientes/1
+
+### 9. Crear cliente
+POST {{base}}/clientes
+Content-Type: application/json
+
+{
+  "empresa": "Talleres Pérez SL",
+  "cif": "B99999999",
+  "estado": "Activo",
+  "direccion": "Calle Mayor, 1",
+  "cp": "22001",
+  "ciudad": "Huesca",
+  "pais": "España",
+  "comercial": "Elena Sanz",
+  "fechaAlta": "2026-10-28",
+  "contactos": [
+    { "nombre": "Pedro Pérez", "email": "pedro@talleresperez.es", "telefono": "974 000 000" }
+  ]
+}
+
+### 10. Crear cliente con CIF repetido -> 409
+POST {{base}}/clientes
+Content-Type: application/json
+
+{ "empresa": "Copia", "cif": "b-50123456", "estado": "Activo" }
+
+### 11. Crear cliente con datos no válidos -> 400 con detalle por campo
+POST {{base}}/clientes
+Content-Type: application/json
+
+{ "empresa": "", "cif": "12", "estado": "Pendiente", "contactos": [{ "nombre": "Ana", "email": "no-es-email" }] }
+
+### 12. Actualizar cliente (PUT = se envía el cliente completo).
+### Los contactos con "id" se actualizan, los que no tienen "id" se crean y los que no aparecen se borran.
+### Si no se envía "contactos", los contactos no se tocan.
+### (Ajusta el id del cliente y de los contactos a los de tu base de datos: consúltalos con la petición 8)
+PUT {{base}}/clientes/1
+Content-Type: application/json
+
+{
+  "empresa": "Construcciones Ebro SL",
+  "cif": "B50123456",
+  "estado": "Activo",
+  "direccion": "Calle Alfonso I, 12",
+  "cp": "50003",
+  "ciudad": "Zaragoza",
+  "pais": "España",
+  "comercial": "Jordi Puig",
+  "fechaAlta": "2025-01-14",
+  "contactos": [
+    { "id": 1, "nombre": "Marta Gil", "email": "marta.gil@construccionesebro.es", "telefono": "+34 976 123 999" },
+    { "id": 7, "nombre": "Pablo Ruiz", "email": "pablo.ruiz@construccionesebro.es", "telefono": "976123457" }
+  ]
+}
+
+### 13. Histórico de cambios del cliente
+GET {{base}}/clientes/1/historico
+
+### 14. Eliminar cliente (borrado lógico) -> 204
+DELETE {{base}}/clientes/7
+
+### 15. El cliente eliminado ya no se encuentra -> 404
+GET {{base}}/clientes/7
+
+### 16. Opciones de los filtros y resumen del panel (usados por la web)
+GET {{base}}/clientes/filtros
+
+###
+GET {{base}}/clientes/resumen
+
+### 17. Cerrar sesión
+POST {{base}}/auth/logout
