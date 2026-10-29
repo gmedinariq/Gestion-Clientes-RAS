@@ -1,5 +1,5 @@
 // Formulario para crear (/clientes/nuevo) o editar (/clientes/:id/editar) un cliente y sus contactos.
-// Valida en el navegador para dar respuesta inmediata; la API vuelve a validar siempre (nunca nos fiamos del cliente).
+// Valida en el navegador para dar respuesta inmediata; la API vuelve a validar siempre.
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';

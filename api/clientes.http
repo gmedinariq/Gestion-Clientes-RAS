@@ -5,6 +5,9 @@
 ### Equivalentes con curl en api/ejemplos-curl.md
 
 @base = http://localhost:8085/api
+### Credenciales configuradas en DEMO_USER_EMAIL y DEMO_USER_PASSWORD del fichero .env
+@email =
+@password =
 
 ### 0. Estado de la API (público)
 GET {{base}}/health
@@ -17,8 +20,8 @@ POST {{base}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "demo@empresa.local",
-  "password": "Demo1234!"
+  "email": "{{email}}",
+  "password": "{{password}}"
 }
 
 ### 3. Usuario de la sesión actual

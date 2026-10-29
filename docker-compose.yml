@@ -1,6 +1,7 @@
-# Arranque completo: docker compose up
-# Las variables se leen del fichero .env (opcional). Si no existe, se usan los valores por defecto
-# que aparecen tras ":-", pensados SOLO para desarrollo local. Ver .env.example.
+# Arranque completo: docker compose up -d --build
+# Las variables se leen del fichero .env (ver .env.example). No hay contraseñas por defecto:
+# POSTGRES_PASSWORD es obligatoria y, si DEMO_USER_EMAIL o DEMO_USER_PASSWORD están vacías,
+# la API arranca sin crear ningún usuario de acceso.
 
 services:
   db:
@@ -9,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-clientes}
       POSTGRES_USER: ${POSTGRES_USER:-clientes}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clientes_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el fichero .env (ver .env.example)}
     volumes:
       - pgdata:/var/lib/postgresql/data # los datos sobreviven a reinicios y a "docker compose down"
     ports:
@@ -24,15 +25,13 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-clientes}:${POSTGRES_PASSWORD:-clientes_dev}@db:5432/${POSTGRES_DB:-clientes}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clientes}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el fichero .env (ver .env.example)}@db:5432/${POSTGRES_DB:-clientes}
       PORT: 3000
       SESSION_HOURS: ${SESSION_HOURS:-8}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-demo@empresa.local}
-      DEMO_USER_NAME: ${DEMO_USER_NAME:-Usuario Demo}
-      # "-" y no ":-": el valor por defecto solo se usa si la variable no existe. Si en .env está
-      # vacía, no se crea el usuario (así nunca se le asigna la contraseña pública por error).
-      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD-Demo1234!}
+      DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
+      DEMO_USER_NAME: ${DEMO_USER_NAME:-Usuario}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy # espera a que PostgreSQL acepte conexiones

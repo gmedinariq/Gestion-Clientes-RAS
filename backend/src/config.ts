@@ -8,7 +8,7 @@ export const config = {
   csvPath: process.env.CSV_PATH ?? 'data/clientes_antiguos.csv',
   demoUser: {
     email: process.env.DEMO_USER_EMAIL,
-    nombre: process.env.DEMO_USER_NAME ?? 'Usuario Demo',
+    nombre: process.env.DEMO_USER_NAME || 'Usuario',
     password: process.env.DEMO_USER_PASSWORD,
   },
 };

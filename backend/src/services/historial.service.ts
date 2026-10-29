@@ -1,4 +1,4 @@
-// Utilidades del histórico de modificaciones (requisito D).
+// Utilidades del histórico de modificaciones.
 
 import { prisma } from '../db';
 

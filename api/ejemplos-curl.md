@@ -1,17 +1,21 @@
 # Ejemplos con curl
 
-Con la aplicación arrancada (`docker compose up`). La opción `-c`/`-b` guarda y reenvía la cookie de sesión.
+Con la aplicación arrancada (`docker compose up -d`). La opción `-c`/`-b` guarda y reenvía la cookie de sesión.
 Los ejemplos son para bash (Linux, macOS, Git Bash). En PowerShell usa `curl.exe` y escapa las comillas del JSON.
+
+`EMAIL` y `PASSWORD` son las credenciales configuradas en `DEMO_USER_EMAIL` y `DEMO_USER_PASSWORD` del fichero `.env`.
 
 ```bash
 BASE=http://localhost:8085/api
+EMAIL='...'
+PASSWORD='...'
 
 # Sin sesión -> 401
 curl -i $BASE/clientes
 
 # Login (guarda la cookie en cookies.txt)
 curl -c cookies.txt -H "Content-Type: application/json" \
-  -d '{"email":"demo@empresa.local","password":"Demo1234!"}' $BASE/auth/login
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" $BASE/auth/login
 
 # Listado con búsqueda, filtros y paginación
 curl -b cookies.txt "$BASE/clientes?q=ebro"

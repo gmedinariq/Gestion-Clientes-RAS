@@ -1,5 +1,5 @@
 // Importación manual: npm run importar [ruta-del-csv]
-// Se puede repetir sin miedo: lo que ya existe no se duplica (aparece como "duplicado" en el resumen).
+// Es idempotente: lo que ya existe no se duplica (aparece como "duplicado" en el resumen).
 
 import { prisma } from '../db';
 import { config } from '../config';

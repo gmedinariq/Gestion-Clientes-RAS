@@ -1,5 +1,5 @@
-// Pequeño envoltorio sobre fetch para llamar a la API.
-// La cookie de sesión la envía el navegador automáticamente (misma web, misma cookie).
+// Envoltorio sobre fetch para llamar a la API.
+// La cookie de sesión la envía el navegador automáticamente (web y API comparten origen).
 
 export interface DetalleError {
   campo: string;

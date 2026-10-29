@@ -22,5 +22,5 @@ COPY prisma ./prisma
 COPY data ./data
 USER node
 EXPOSE 3000
-# Al arrancar: aplica migraciones -> usuario demo + importación inicial (si hace falta) -> API
+# Al arrancar: aplica migraciones -> usuario de acceso + importación inicial (si hace falta) -> API
 CMD ["npm", "run", "start:docker"]

@@ -1,5 +1,4 @@
 // Mensajes emergentes de éxito o error ("Cliente guardado correctamente").
-// Uso: const { mostrar } = useToast(); mostrar('Texto', 'exito');
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { CheckCircle2, XCircle } from 'lucide-react';

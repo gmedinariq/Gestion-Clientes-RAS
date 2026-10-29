@@ -25,6 +25,7 @@ Escribí un único prompt inicial largo y estructurado (no una petición genéri
 | 2 | "Prepara un ZIP del proyecto para una revisión técnica externa, sin node_modules, .git, .env ni datos sensibles; no modifiques nada" | ZIP generado con `git archive` (no forma parte del repositorio) |
 | 3 | "Auditoría final: valida estrictamente las fechas de la API, revisa seguridad y autenticación, clasifica las vulnerabilidades de dependencias, comprueba requisito a requisito y los casos especiales, sin rehacer la arquitectura ni borrar datos" | Ver la sección [Auditoría final](#auditoría-final) |
 | 4 | "Preparación final: limpia el código como lo haría un sénior (sin cambiar funcionalidad), prepara un usuario privado local fuera del repositorio, separa la documentación pública de la de estudio y deja el repositorio listo para GitHub sin publicarlo" | Ver la sección [Preparación de la entrega](#preparación-de-la-entrega) |
+| 5 | "Revisión final: README técnico y conciso, ninguna credencial publicada en el repositorio, eliminar emojis decorativos, limpieza ligera de comentarios, prueba de instalación limpia y revisión del historial de Git, sin añadir funcionalidades ni publicar" | Ver la sección [Revisión final antes de la entrega](#revisión-final-antes-de-la-entrega) |
 
 La sesión fue autónoma: la IA trabajó por fases sin pedir confirmación en cada paso, tal como le indiqué.
 
@@ -150,11 +151,28 @@ Petición: revisar el código como lo haría un desarrollador sénior, **sin cam
 - Comprobado con `tsc --noUnusedLocals --noUnusedParameters`: no queda código sin usar.
 - Los `console.log` restantes son logs operativos (arranque de la API y resumen de importación), no de depuración.
 
-**Error encontrado en la configuración de credenciales.** `docker-compose.yml` usaba `${DEMO_USER_PASSWORD:-Demo1234!}`. En Compose, `:-` aplica el valor por defecto también cuando la variable existe pero está **vacía**. Por tanto, un `.env` con un correo privado y la contraseña todavía sin rellenar habría creado ese usuario con la contraseña pública. Se cambió a `-`, que solo aplica el valor por defecto si la variable no existe. Comprobado con `docker compose config` en los dos casos. Un clon sin `.env` sigue usando las credenciales demo.
+**Error encontrado en la configuración de credenciales.** `docker-compose.yml` usaba `${DEMO_USER_PASSWORD:-<contraseña demo>}`. En Compose, `:-` aplica el valor por defecto también cuando la variable existe pero está **vacía**. Por tanto, un `.env` con un correo privado y la contraseña todavía sin rellenar habría creado ese usuario con la contraseña pública. Se cambió a `-`, que solo aplica el valor por defecto si la variable no existe. Comprobado con `docker compose config` en los dos casos. En la revisión final se eliminaron por completo los valores por defecto (ver [Revisión final antes de la entrega](#revisión-final-antes-de-la-entrega)).
 
 **Credenciales privadas.** Mi usuario local se configura en un `.env` que git ignora, y yo introduzco la contraseña a mano: la IA no la conoce. Se comprobó que ningún fichero versionado ni ningún commit del historial contiene el correo privado.
 
 **Documentación.** El README se reescribió más conciso, conservando lo que pide el enunciado. La guía de estudio se movió fuera del repositorio tras comprobar que la copia era idéntica (hash SHA-256).
+
+## Revisión final antes de la entrega
+
+Petición: que el repositorio no publique ninguna credencial de acceso (las facilito por separado a los evaluadores), sin cambiar la autenticación, el almacenamiento con bcrypt ni la funcionalidad.
+
+**Cambios:**
+- `docker-compose.yml` ya no tiene contraseñas por defecto. `POSTGRES_PASSWORD` es obligatoria (`${POSTGRES_PASSWORD:?...}`): sin ella, Compose no arranca y lo indica. El email y la contraseña del usuario de acceso no tienen valor por defecto; si faltan, `seed.ts` no crea ningún usuario (comportamiento que ya existía).
+- `.env.example` deja vacías las contraseñas y el usuario de acceso.
+- `vitest.config.mts` construye la URL de la base de datos de test con las variables `POSTGRES_*` del entorno o del `.env` de la raíz (solo lee esas claves), en lugar de llevar la contraseña escrita en el código.
+- `api/clientes.http` y `api/ejemplos-curl.md` usan variables para el email y la contraseña.
+- README reescrito con el procedimiento de instalación en cinco pasos; eliminado el único emoji del repositorio y algunos comentarios de tono didáctico.
+
+**Comprobaciones:**
+- 50/50 tests, `tsc` y build de backend y frontend correctos.
+- Instalación limpia en una carpeta temporal con un proyecto Docker y un volumen independientes: sin `.env`, Compose se niega a arrancar; con `.env`, se crea el usuario configurado, se importa el CSV (7 clientes, 8 contactos, 14 facturas), el login funciona y las credenciales demo antiguas devuelven 401; sin email ni contraseña de acceso, no se crea ningún usuario. Los tests también pasan en esa copia leyendo el `.env`.
+- Búsqueda de credenciales en los ficheros versionados: no queda ninguna. Mi correo privado no aparece en ningún fichero ni commit.
+- **Historial:** las credenciales demo antiguas siguen visibles en commits anteriores. Ya no permiten iniciar sesión en una instalación nueva, porque el usuario solo se crea con las credenciales del `.env`.
 
 ## Historial de commits
 
