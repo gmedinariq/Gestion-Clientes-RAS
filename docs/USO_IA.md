@@ -1,116 +1,214 @@
 # Uso de Inteligencia Artificial
 
-## Introducción
+## 1. Introducción
 
-El proyecto se ha desarrollado con **Claude Code** (CLI de Anthropic, modelo Claude Opus 5.5), ejecutado en local sobre la carpeta del proyecto en Windows 11. Claude Code puede leer ficheros, escribir código y ejecutar comandos (npm, Docker, Git) con autorización.
+Durante el desarrollo de esta prueba técnica he utilizado **Claude Code** (CLI de Anthropic, modelo Claude Opus 5.5) como herramienta de apoyo a la programación.
 
-La IA ha generado la mayor parte del código, los tests y la documentación, y ha aplicado las modificaciones posteriores. Mi trabajo ha consistido en definir los requisitos, las tecnologías y las restricciones, revisar los resultados de cada fase, probar la aplicación y pedir correcciones o cambios a partir de lo obtenido.
+Considero que la inteligencia artificial es especialmente útil en el desarrollo de software porque permite agilizar tareas repetitivas, generar estructuras de código, proponer soluciones y detectar posibles errores. Sin embargo, su utilización requiere comprender los requisitos, supervisar los resultados y comprobar que las soluciones implementadas funcionan correctamente.
 
-Este documento resume los prompts principales y el proceso seguido, como permite el apartado 7 del enunciado.
+El proyecto se ha desarrollado mediante un proceso de trabajo iterativo, combinando la definición de requisitos, las tareas de programación, la asistencia de Claude Code y las comprobaciones posteriores.
 
-## Principales prompts y tareas
+Claude Code ha generado parte del código, las pruebas automatizadas y la documentación a partir de mis instrucciones, y ha aplicado las modificaciones que le he ido solicitando. También se ha utilizado para resolver incidencias y ejecutar las comprobaciones técnicas.
 
-### 1. Planteamiento inicial
+Las decisiones sobre el alcance del proyecto, las funcionalidades necesarias y las modificaciones solicitadas se han realizado siguiendo los requisitos de la prueba técnica.
 
-El desarrollo partió de un único prompt largo y estructurado, no de una petición genérica:
+Este documento recoge los principales prompts utilizados, las tareas realizadas con asistencia de IA y las verificaciones efectuadas durante el desarrollo.
 
-> "Desarrolla la prueba técnica completa siguiendo el PDF. Lee primero el PDF y el CSV y analiza todos los requisitos. Prioriza sencillez y calidad…"
+## 2. Metodología de trabajo
 
-El prompt incluía:
+El uso de Claude Code no se ha limitado a generar una respuesta y dar el proyecto por terminado.
 
-- **Contexto:** leer el enunciado y el CSV antes de empezar y cumplir fielmente el PDF.
-- **Prioridades:** sencillez y código legible y fácil de explicar, sin arquitecturas sobredimensionadas.
-- **Tecnologías:** Node.js, TypeScript, Express y Prisma, React y Vite, PostgreSQL, Docker Compose, Vitest y sesiones con cookies HttpOnly.
-- **Reglas de trabajo:** commits pequeños, no subir secretos, no publicar en GitHub sin permiso, no modificar nada fuera de la carpeta del proyecto y no afirmar que algo funciona sin comprobarlo.
-- **Fases:** análisis, arquitectura, base de datos e importador, API, autenticación e histórico, interfaz web, Docker, pruebas y documentación.
+El proceso ha consistido en definir los requisitos de cada fase, solicitar implementaciones o modificaciones, revisar los resultados obtenidos y realizar comprobaciones para detectar posibles problemas.
 
-### 2. Implementación por fases
+Cuando una funcionalidad necesitaba ajustes, se planteaban nuevas instrucciones para corregirla o mejorarla.
 
-Los requisitos de cada fase venían detallados en el prompt inicial. Claude Code los desarrolló en orden y creó un commit por fase:
+Este procedimiento se ha aplicado tanto durante la implementación inicial como en las posteriores revisiones del proyecto.
 
-| Fase | Requisitos indicados | Resultado |
-|---|---|---|
-| Análisis y arquitectura | Revisar el CSV fila a fila antes de programar y proponer una estructura sencilla | Lista de anomalías del CSV y estructura `routes → controllers → services`, con sesiones en base de datos, borrado lógico y nginx como proxy |
-| Importación CSV | Detectar duplicados, normalizar formatos de fecha e importe, no inventar datos que falten y que la importación se pueda repetir | Normalizadores e importador por filas, con una transacción por fila y registro de incidencias |
-| API | Endpoints del enunciado, paginación, búsqueda y filtros | API REST con validación con Zod y gestión de errores centralizada |
-| Autenticación | API protegida y contraseñas seguras | Login con bcrypt, sesiones en base de datos y cookie HttpOnly |
-| Histórico | Registrar los cambios en una transacción y no escribir nada si no hay cambios | Una fila por campo modificado, guardada en la misma transacción que el cambio |
-| Interfaz y Docker | Interfaz en español; arranque con `docker compose up` | React (login, listado, ficha y formulario), Dockerfiles, nginx y Docker Compose |
-| Pruebas | Tests que se ejecuten con un solo comando | 40 tests unitarios y de integración con una base de datos de test propia |
-| Documentación | README, ejemplos de la API y este documento | `README.md`, `api/clientes.http`, `api/ejemplos-curl.md` y `docs/USO_IA.md` |
+La IA ha permitido acelerar especialmente la escritura de código, la preparación de pruebas y la identificación de errores. Las funcionalidades se han validado mediante pruebas automatizadas, comprobaciones de la API y pruebas manuales de la aplicación.
 
-### 3. Validaciones y auditoría
+## 3. Principales prompts utilizados
 
-Después de revisar el resultado pedí una auditoría con una restricción explícita: corregir solo problemas reales, sin cambiar la arquitectura ni borrar datos.
+A continuación se presenta un resumen representativo de las instrucciones utilizadas durante el desarrollo.
 
-> "Auditoría final: valida estrictamente las fechas de la API, revisa seguridad y autenticación, clasifica las vulnerabilidades de dependencias, comprueba requisito a requisito y los casos especiales, sin rehacer la arquitectura ni borrar datos"
+Las fases 3.1 a 3.5 se definieron con varios prompts pequeños comprobando todo antes de seguir y haciendo modificaciones de código donde hiciera falta. Las instrucciones que se muestran resumen cada apartado. Las fases 3.6 y 3.7 corresponden a prompts posteriores, planteados a partir de los resultados obtenidos.
 
-El método fue escribir primero un test que reprodujera cada sospecha y corregir solo lo que ese test demostraba que fallaba. Se añadieron 10 tests (de 40 a 50).
+### 3.1. Análisis y planificación
 
-### 4. Preparación de la entrega
+**Objetivo:** comprender los requisitos de la prueba técnica y organizar su implementación.
 
-> "Prepara un ZIP del proyecto para una revisión técnica externa, sin node_modules, .git, .env ni datos sensibles; no modifiques nada"
+Ejemplo de instrucción resumida:
 
-> "Preparación final: limpia el código como lo haría un sénior (sin cambiar funcionalidad), prepara un usuario privado local fuera del repositorio, separa la documentación pública de la de estudio y deja el repositorio listo para GitHub sin publicarlo"
+> Analiza el documento de requisitos y el CSV proporcionado. Identifica las funcionalidades obligatorias, los posibles problemas de los datos y propone una estructura sencilla, mantenible y adecuada para una prueba técnica.
 
-> "Revisión final: README técnico y conciso, ninguna credencial publicada en el repositorio, eliminar emojis decorativos, limpieza ligera de comentarios, prueba de instalación limpia y revisión del historial de Git, sin añadir funcionalidades ni publicar"
+Durante esta fase se definieron las tecnologías principales:
 
-Como material de estudio para la defensa técnica, pedí también una guía personal que explica cada parte del código. Estuvo en `docs/` durante el desarrollo y la saqué del repositorio al preparar la entrega; sigue visible en el historial de commits.
+- Backend: Node.js, TypeScript y Express.
+- Frontend: React y Vite.
+- Base de datos: PostgreSQL y Prisma.
+- Validaciones: Zod.
+- Pruebas: Vitest.
+- Entorno de ejecución: Docker Compose.
 
-Este documento se ha reorganizado con Claude Code a partir de la información de la sesión.
+Se priorizó una arquitectura comprensible y fácil de mantener, evitando añadir complejidad innecesaria.
 
-## Supervisión y validación del desarrollo
+### 3.2. Base de datos e importación CSV
 
-### Comprobaciones realizadas por Claude Code
+**Objetivo:** implementar el almacenamiento de clientes, contactos y facturas, junto con la importación de los datos proporcionados.
 
-Claude Code verificó cada fase ejecutando el código, no solo leyéndolo:
+Ejemplo de instrucción resumida:
 
-- Importación del CSV contra PostgreSQL, contrastada con el análisis manual del CSV hecho antes de programar.
-- Tests automáticos con `npm test`.
-- Compilación de backend y frontend con `tsc` y `npm run build`.
-- Arranque completo con Docker, incluida la instalación desde cero en una carpeta temporal.
-- Peticiones a la API con curl a través de nginx: respuestas 401, 400, 404 y 409, búsqueda, filtros y paginación.
+> Implementa la estructura de base de datos y la importación del CSV. Comprueba los formatos de fechas e importes, detecta duplicados, evita inventar información y permite repetir la importación sin duplicar registros.
 
-Claude Code no tuvo acceso a un navegador, así que no comprobó la interfaz visualmente.
+Se trabajó sobre la normalización de los datos, las relaciones entre entidades y el tratamiento de registros incorrectos.
 
-### Comprobaciones realizadas personalmente
+También se realizaron comprobaciones para verificar que los datos importados coincidían con los resultados esperados.
 
-He probado la interfaz manualmente en el navegador:
+### 3.3. Desarrollo de la API
 
-- inicio de sesión;
-- listado de clientes;
-- creación, consulta, edición y eliminación de clientes;
-- gestión de contactos;
-- detección de CIF duplicado y mensajes de validación;
-- búsqueda y filtros;
-- histórico de modificaciones;
-- diseño responsive (vista móvil).
+**Objetivo:** implementar las operaciones necesarias para gestionar clientes y contactos.
 
-No consta una prueba manual específica de la paginación en el navegador. Está cubierta por los tests de la API y por las peticiones con curl.
+Ejemplo de instrucción resumida:
 
-Además de probar la aplicación, revisé los resultados que Claude Code iba presentando en cada fase y, a partir de ellos, pedí las modificaciones descritas en este documento.
+> Desarrolla los endpoints necesarios para consultar, crear, modificar y eliminar clientes. Añade validaciones, búsqueda, filtros, paginación y respuestas de error claras.
 
-## Incidencias detectadas y correcciones
+La API se organizó separando rutas, controladores y servicios.
 
-| Incidencia | Corrección |
+Se incorporaron validaciones de entrada y mecanismos para gestionar errores y evitar operaciones inconsistentes.
+
+### 3.4. Autenticación e histórico
+
+**Objetivo:** proteger el acceso a la aplicación y registrar las modificaciones realizadas.
+
+Ejemplo de instrucción resumida:
+
+> Añade autenticación segura y un histórico de modificaciones. Los cambios deben registrar el usuario, el campo modificado y sus valores anterior y nuevo. Evita generar entradas de histórico cuando no existan cambios reales.
+
+Se implementó autenticación mediante sesiones almacenadas en base de datos y cookies HttpOnly.
+
+El histórico se integró con las operaciones de actualización para conservar la trazabilidad de los cambios.
+
+### 3.5. Interfaz web
+
+**Objetivo:** desarrollar una aplicación que permita utilizar las funcionalidades de la API de forma sencilla.
+
+Ejemplo de instrucción resumida:
+
+> Crea una interfaz en React, en español y adaptable a distintos tamaños de pantalla, que permita iniciar sesión, consultar clientes, gestionar sus datos y visualizar el histórico de modificaciones.
+
+Durante esta fase se trabajó en las pantallas de acceso, listado, detalle y formularios.
+
+Posteriormente, la interfaz se comprobó manualmente en el navegador para verificar el funcionamiento de las principales operaciones.
+
+### 3.6. Pruebas y corrección de errores
+
+**Objetivo:** comprobar la estabilidad de la aplicación y corregir los problemas detectados.
+
+Ejemplo de instrucción resumida:
+
+> Revisa las funcionalidades implementadas, ejecuta las pruebas y comprueba los posibles errores. Antes de modificar el código, intenta reproducir el problema y evita realizar cambios innecesarios en la arquitectura o en funcionalidades que ya funcionan.
+
+Se realizaron pruebas de normalización, importación, autenticación, validaciones, búsqueda, filtros e histórico.
+
+En la auditoría posterior se añadieron pruebas (de 40 a 50) para comprobar situaciones adicionales y corregir los errores confirmados.
+
+### 3.7. Revisión final y documentación
+
+**Objetivo:** preparar el proyecto para su entrega y facilitar su instalación.
+
+Ejemplo de instrucción resumida:
+
+> Revisa el proyecto antes de la entrega. Comprueba que se puede instalar desde un repositorio limpio, que la documentación es clara, que no se publican credenciales y que las funcionalidades existentes continúan funcionando.
+
+Se revisaron el README, los ejemplos de uso de la API, la configuración de Docker y las variables de entorno.
+
+También se comprobó la instalación del proyecto en un entorno independiente.
+
+## 4. Supervisión y comprobaciones
+
+Una parte importante del proceso ha sido comprobar que el código generado o modificado con ayuda de IA cumplía los requisitos de la prueba.
+
+Las verificaciones se realizaron de dos formas complementarias.
+
+### 4.1. Pruebas técnicas
+
+Claude Code ejecutó las siguientes comprobaciones:
+
+- Pruebas unitarias y de integración.
+- Compilación del backend y del frontend.
+- Comprobación de los tipos de TypeScript.
+- Pruebas de importación del CSV.
+- Peticiones a la API para comprobar las respuestas y validaciones.
+- Arranque y reconstrucción de los servicios mediante Docker.
+- Instalación desde una copia limpia del repositorio.
+
+Estas pruebas permitieron detectar errores y comprobar que las modificaciones no afectaban negativamente al funcionamiento de otras partes del proyecto.
+
+Claude Code no tuvo acceso a un navegador, por lo que la interfaz se comprobó manualmente.
+
+### 4.2. Pruebas manuales
+
+Además de las comprobaciones técnicas, probé personalmente la aplicación desde el navegador.
+
+Entre las funcionalidades verificadas se encuentran:
+
+- Inicio de sesión.
+- Visualización del listado de clientes.
+- Consulta de información de clientes.
+- Creación, modificación y eliminación de clientes.
+- Gestión de contactos.
+- Validaciones de formularios.
+- Detección de CIF duplicado.
+- Búsqueda y filtros.
+- Consulta del histórico de modificaciones.
+- Adaptación de la interfaz a una pantalla móvil.
+
+La paginación se comprobó mediante pruebas de la API, aunque no se realizó una verificación manual específica desde el navegador.
+
+Los resultados de estas comprobaciones sirvieron para identificar aspectos que necesitaban ajustes y solicitar nuevas correcciones.
+
+## 5. Incidencias y mejoras realizadas
+
+Durante el desarrollo y las revisiones posteriores se detectaron diferentes situaciones que requirieron modificaciones.
+
+| Incidencia detectada | Solución aplicada |
 |---|---|
-| `npm audit` detectó vulnerabilidades en las versiones instaladas al principio (zod, csv-parse, express-rate-limit) | Dependencias actualizadas. Los avisos restantes requieren versiones mayores y están clasificados en el README |
-| Claude Code intentó preparar la base de datos de test con `prisma migrate reset`, que borra la base de datos; Prisma lo bloqueó al detectar que lo ejecutaba un agente de IA | En lugar de saltarse la protección, se cambió a `prisma migrate deploy` (no borra datos) y a un `TRUNCATE` que se niega a ejecutarse si el nombre de la base de datos no contiene `test` |
-| El `globalSetup` de Vitest no recibía la URL de la base de datos de test, y el fichero de configuración no podía importar Vitest | URL fijada en la configuración y fichero renombrado a `vitest.config.mts` |
-| Desde un clon limpio, los tests fallaban porque el cliente de Prisma no estaba generado | Script `postinstall` con `prisma generate` y Dockerfile reordenado |
-| Los puertos 8080 y 5433 estaban ocupados en mi equipo | Puertos por defecto cambiados a 8085 y 55432 |
-| Riesgo de finales de línea CRLF en los contenedores Linux | `.gitattributes` para forzar LF |
-| La API validaba `fechaAlta` con `Date.parse()`, que acepta `2026-09-31` y lo convierte en 1 de octubre | Validación con la misma función estricta que usa el importador |
-| Un id mayor que el máximo de `INTEGER` provocaba un error 500 | Límite en la validación: ahora responde 400 |
-| En `docker-compose.yml`, una contraseña vacía en `.env` activaba la contraseña de demostración pública | Primero se corrigió la sintaxis de la variable. En la revisión final se eliminaron todos los valores por defecto: el repositorio no publica credenciales de acceso y, si faltan las del usuario, no se crea ningún usuario |
+| Diferentes formatos de fechas e importes en el CSV | Se incorporaron funciones de normalización y validación. |
+| Posibilidad de duplicar datos al repetir una importación | Se implementaron comprobaciones para evitar duplicados. |
+| Validación incorrecta de determinadas fechas (`2026-09-31` se aceptaba como 1 de octubre) | Se sustituyó por una validación estricta. |
+| Identificadores fuera del rango permitido | Se añadieron límites para devolver errores controlados. |
+| Claude Code intentó preparar la base de datos de pruebas con un comando que la borraba, y Prisma lo bloqueó | En lugar de saltarse esa protección, se cambió a un procedimiento que no borra datos y que solo vacía bases de datos de prueba. |
+| Problemas de configuración de Vitest y Prisma | Se ajustaron los archivos de configuración y los scripts necesarios. |
+| Errores al ejecutar el proyecto desde una instalación limpia | Se corrigió la generación del cliente de Prisma y la configuración de Docker. |
+| Conflictos con puertos utilizados por otros servicios | Se modificaron los puertos de desarrollo. |
+| Configuración de credenciales de demostración | Se eliminaron los valores por defecto y se trasladó la configuración al archivo `.env`. |
 
-## Resultado de las verificaciones
+Las correcciones se acompañaron de nuevas comprobaciones para confirmar que los problemas se habían resuelto.
 
-Estado tras la revisión final:
+## 6. Resultados de las verificaciones
 
-- **Tests:** 50/50 en verde (normalización, importación, validaciones, autenticación, búsqueda y filtros, histórico y borrado lógico).
-- **Compilación:** backend y frontend sin errores de tipos ni de build.
-- **Importación:** 18 filas leídas, con 7 clientes, 8 contactos y 14 facturas creados, 1 duplicado y 2 facturas rechazadas. Repetirla no duplica datos.
-- **Instalación limpia:** en una carpeta temporal, con un proyecto Docker y una base de datos independientes, la aplicación arranca, el usuario configurado inicia sesión, se importa el CSV y la API y la web responden. Sin credenciales configuradas no se crea ningún usuario.
-- **Seguridad del repositorio:** ningún fichero versionado contiene credenciales de acceso, y `.env` está excluido por `.gitignore`. Las credenciales de demostración que se usaron en versiones anteriores siguen visibles en el historial de commits, que se conserva tal cual; ya no dan acceso a una instalación nueva.
-- **Pendiente:** la interfaz no tiene tests automáticos; se ha validado manualmente.
+Al finalizar las revisiones, se obtuvieron los siguientes resultados:
+
+| Comprobación | Resultado |
+|---|---|
+| Pruebas automatizadas | 50 pruebas superadas |
+| Compilación del backend | Correcta |
+| Compilación del frontend | Correcta |
+| Importación CSV | 7 clientes, 8 contactos y 14 facturas creados |
+| Control de incidencias CSV | 1 duplicado y 2 facturas rechazadas |
+| Repetición de importación | Sin duplicación de datos |
+| Instalación limpia con Docker | Correcta |
+| Autenticación y protección de endpoints | Verificadas |
+| Pruebas manuales de la interfaz | Realizadas |
+| Credenciales en los archivos actuales del repositorio | No incluidas |
+
+La interfaz no dispone de una batería propia de pruebas automatizadas de componentes, por lo que su funcionamiento visual se ha comprobado manualmente.
+
+## 7. Conclusión
+
+La inteligencia artificial ha sido una herramienta útil durante esta prueba técnica, especialmente para **agilizar la implementación, facilitar la generación de código, preparar pruebas y ayudar a localizar errores**.
+
+Su utilización se ha combinado con la definición de requisitos, la supervisión de los resultados, la realización de pruebas y la solicitud de modificaciones cuando ha sido necesario.
+
+Considero que el valor de estas herramientas no está únicamente en la cantidad de código que pueden generar, sino en saber utilizarlas de forma adecuada, comprender las soluciones propuestas y verificar que cumplen los requisitos.
+
+El objetivo durante el desarrollo ha sido aprovechar esa capacidad de acelerar el trabajo sin dejar de lado la calidad, la validación y la comprensión del funcionamiento de la aplicación.
